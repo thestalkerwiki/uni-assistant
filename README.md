@@ -93,6 +93,40 @@ Example behavior:
 - broader question -> contextual answer based on retrieved document context
 - if the document is incomplete -> say what is missing and then give general guidance
 
+## Example response modes
+
+The assistant currently works with different response modes depending on the user request.
+
+### `rag`
+
+Used for direct factual questions.
+
+Example:
+- Question: `What English level is required?`
+- Mode: `rag`
+- Behavior: retrieves relevant chunks from the document and returns a short factual answer
+
+### `contextual_plan`
+
+Used for broader questions that need guidance, not just one fact.
+
+Example:
+- Question: `What documents do I need for this program?`
+- Mode: `contextual_plan`
+- Behavior:
+  - extracts document-based facts
+  - identifies missing information
+  - adds practical guidance when the document is incomplete
+
+### `fallback_plan`
+
+Used when the document does not contain a direct answer and the assistant falls back to a more general plan.
+
+Example:
+- Question: broad question with weak or missing document support
+- Mode: `fallback_plan`
+- Behavior: gives general step-by-step guidance based on model knowledge
+
 ## What is already implemented
 
 - strict RAG endpoint
