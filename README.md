@@ -1,27 +1,25 @@
-# uni-assistant
-FastAPI-based RAG prototype for university admission guidance with contextual planning
-
 # Uni Assistant
 
 Uni Assistant is my backend prototype for university admission guidance.
 
-The idea is to build an AI assistant that can help future students understand university programs, requirements, and study structure based on official documents.
+The idea of the project is to build an AI assistant that can help future students understand university programs, requirements, and study structure based on official sources.
 
-Right now this is still an early version focused on one program and one PDF document.
+At the current stage, this is still an early version focused on one university program and one PDF document.
 
 ## Project goal
 
-This project has two main goals:
+This project currently has two main goals:
 
-1. portfolio project for IT job applications  
-2. practical prototype of an AI assistant for university admission guidance
+1. to be a portfolio project for IT job applications  
+2. to become a practical prototype of an AI assistant for university admission guidance
 
 Long term idea:
 an assistant for CIS / post-Soviet applicants who want to apply to European universities without agencies.
 
-## Current version
+## Current scope
 
-Current version works with:
+This version currently works with:
+
 - FastAPI
 - one PDF source
 - RAG
@@ -29,12 +27,12 @@ Current version works with:
 - OpenAI model
 - contextual planning for broader questions
 
-At this stage the project is not production-ready.
+This is not a production-ready system.
 It is a working prototype.
 
 ## Current architecture
 
-Pipeline right now:
+Current pipeline:
 
 PDF -> chunks -> embeddings -> FAISS -> retrieval -> GPT answer
 
@@ -42,26 +40,29 @@ Main file:
 - `app.py`
 
 Main components:
-- PDF loading with `PyPDFLoader`
-- chunking with `RecursiveCharacterTextSplitter`
-- embeddings with `OpenAIEmbeddings`
-- vector search with `FAISS`
-- answer generation with `ChatOpenAI`
+- `PyPDFLoader` for PDF loading
+- `RecursiveCharacterTextSplitter` for chunking
+- `OpenAIEmbeddings` for embeddings
+- `FAISS` for vector search
+- `ChatOpenAI` for answer generation
 
 ## Endpoints
 
 ### `/ask`
+
 Strict factual RAG over the document.
 
 Use case:
 - direct factual questions
-- short document-based answers
+- short answers grounded in document context
 
-Example:
+Examples:
 - How many ECTS does this program have?
 - What language is the program taught in?
+- What English level is required?
 
 ### `/plan`
+
 General step-by-step plan based on model knowledge.
 
 Use case:
@@ -69,6 +70,7 @@ Use case:
 - general preparation guidance
 
 ### `/assistant`
+
 Main hybrid assistant route.
 
 Current logic:
@@ -79,16 +81,17 @@ Current logic:
 ## Current assistant behavior
 
 The assistant currently tries to separate:
+
 - document facts
 - missing information
 - general guidance
 
-This is especially used in `contextual_plan`.
+This is mainly used in `contextual_plan`.
 
 Example behavior:
-- factual question -> short answer from document
+- factual question -> short answer from the document
 - broader question -> contextual answer based on retrieved document context
-- if document is incomplete -> say what is missing and then give general guidance
+- if the document is incomplete -> say what is missing and then give general guidance
 
 ## What is already implemented
 
@@ -98,15 +101,6 @@ Example behavior:
 - intent-based retrieval shaping
 - factual-first routing
 - first working version of contextual planning
-
-## Current limitations
-
-- only one PDF source
-- no website crawling yet
-- no multilingual support yet
-- some broader answers are still too generic
-- structure-heavy sections of the document can still be interpreted imperfectly
-- not deployed
 
 ## Example questions
 
@@ -120,11 +114,27 @@ Broader:
 - How should I plan my studies for this program?
 - What school subjects do I need before applying?
 
+## Current limitations
+
+- currently works with one PDF source
+- no website crawling yet
+- no multilingual support yet
+- some broader answers are still too generic
+- structure-heavy sections of the document can still be interpreted imperfectly
+- not deployed
+
+## Document source
+
+This prototype currently uses one publicly available official curriculum PDF from the University of Klagenfurt.
+
+The document remains the property of its original publisher and is included here only for educational / demonstration purposes in the context of this prototype.
+
 ## Why this project is interesting for me
 
 I do not want to build just a chatbot that gives generic answers.
 
 The more important part for me is:
+
 - grounded answers
 - separation between facts and assumptions
 - reducing information chaos for the user
@@ -133,6 +143,7 @@ The more important part for me is:
 ## Next steps
 
 Planned next improvements:
+
 - better contextual planning
 - stronger handling of broad user questions
 - support for multiple sources
