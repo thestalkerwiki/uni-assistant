@@ -1,13 +1,22 @@
+import os
 from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["USER_AGENT"] = os.getenv(
+    "USER_AGENT",
+    "UniAssistantPrototype/1.0 (educational project)"
+)
+
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+import bs4
 
+from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
-
-load_dotenv()
 
 app = FastAPI(title="Uni Assistant API")
 
@@ -73,6 +82,11 @@ def detect_query_intent(query: str) -> str:
     "structure", "program structure", "study structure"
     ]):
         return "study_structure"
+    
+    if any(word in lowered for word in [
+    "language of instruction", "taught in", "what language is the program taught in"
+    ]):
+        return "language"
 
     return "general"
 
@@ -98,6 +112,14 @@ def build_retrieval_query(user_query: str) -> str:
             f"{user_query} "
             "deadline application deadline semester start admission period dates"
         )
+        
+    if intent == "language":
+        return (
+            f"{user_query} "
+            "fact box language of instruction english "
+            "\"Language of instruction: English\" "
+            "programme type duration ects structure degree prerequisites"
+        )
 
     if intent == "study_structure":
         return (
@@ -109,11 +131,116 @@ def build_retrieval_query(user_query: str) -> str:
 
     return user_query
 
+def load_web_documents_from_url(url: str):
+    loader = WebBaseLoader(
+        url,
+        header_template={
+            "User-Agent": "UniAssistantPrototype/1.0 (educational project)"
+        },
+        bs_kwargs={
+            "parse_only": bs4.SoupStrainer(
+                ["main", "article", "h1", "h2", "h3", "p", "li"]
+            )
+        }
+    )
+    docs = loader.load()
+
+    if docs:
+        print("DEBUG WEB TITLE:", docs[0].metadata.get("title"))
+        print("DEBUG WEB SOURCE:", docs[0].metadata.get("source"))
+        print("DEBUG WEB CONTENT PREVIEW:")
+        print(docs[0].page_content[:1500])
+
+    return docs
+
+def build_web_vectorstore(url: str, embeddings):
+    docs = load_web_documents_from_url(url)
+
+    for doc in docs:
+        metadata = doc.metadata or {}
+        title = metadata.get("title", "")
+        source = metadata.get("source", "")
+
+        header_parts = []
+        if title:
+            header_parts.append(f"Title: {title}")
+        if source:
+            header_parts.append(f"Source: {source}")
+
+        if header_parts:
+            doc.page_content = "\n".join(header_parts) + "\n\n" + doc.page_content
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=100
+    )
+    chunks = splitter.split_documents(docs)
+
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    return vectorstore
+
+def extract_sources(results):
+    sources = []
+
+    for doc in results:
+        metadata = doc.metadata or {}
+
+        # PDF-style source
+        page = metadata.get("page")
+        if page is not None:
+            sources.append(f"Page {page + 1}")
+            continue
+
+        # Web-style source
+        title = metadata.get("title")
+        source_url = metadata.get("source")
+
+        if title and source_url:
+            sources.append(f"{title} | {source_url}")
+        elif source_url:
+            sources.append(source_url)
+        elif title:
+            sources.append(title)
+        else:
+            sources.append("Source unknown")
+
+    return list(dict.fromkeys(sources))
+
+def build_context_from_docs(results):
+    parts = []
+
+    for doc in results:
+        metadata = doc.metadata or {}
+        title = metadata.get("title", "")
+        source = metadata.get("source", "")
+        content = doc.page_content.strip()
+
+        meta_block = []
+        if title:
+            meta_block.append(f"Title: {title}")
+        if source:
+            meta_block.append(f"Source: {source}")
+
+        if meta_block:
+            parts.append("\n".join(meta_block) + f"\nContent:\n{content}")
+        else:
+            parts.append(content)
+
+    return "\n\n---\n\n".join(parts)
+
 def ask_question(query, vectorstore, llm):
     retrieval_query = build_retrieval_query(query)
-    results = vectorstore.similarity_search(retrieval_query, k=3)
+    intent = detect_query_intent(query)
 
-    context = "\n\n".join([doc.page_content for doc in results])
+    k = 8 if intent == "language" else 3
+    results = vectorstore.similarity_search(retrieval_query, k=k)
+
+    for i, doc in enumerate(results):
+        print(f"DEBUG TOP CHUNK {i+1}:")
+        print(doc.page_content[:500])
+        print("---")
+
+    context = build_context_from_docs(results)
 
     prompt = f"""
 Answer ONLY based on the context below.
@@ -127,19 +254,12 @@ Question:
 """
 
     response = llm.invoke(prompt)
-    
-    print("DEBUG ask intent:", detect_query_intent(query))
+
+    print("DEBUG ask intent:", intent)
     print("DEBUG ask retrieval_query:", retrieval_query)
+    print("DEBUG ask k:", k)
 
-    sources = []
-    for doc in results:
-        page = doc.metadata.get("page", "unknown")
-        if page != "unknown":
-            sources.append(f"Page {page + 1}")
-        else:
-            sources.append("Page unknown")
-
-    sources = list(dict.fromkeys(sources))
+    sources = extract_sources(results)
 
     return {
         "mode": "rag",
@@ -169,13 +289,22 @@ User request:
 """
 
     response = llm.invoke(prompt)
+    text = response.content.strip()
+
+    if not text:
+        text = (
+            "I could not generate a detailed plan for this request yet. "
+            "Please try rephrasing the question or ask a more specific question "
+            "about admission, documents, deadlines, or study structure."
+        )
 
     return {
         "mode": "plan",
         "request": user_request,
-        "answer": response.content.strip(),
+        "answer": text,
         "sources": []
     }
+    
     
 def build_contextual_plan(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
@@ -184,21 +313,13 @@ def build_contextual_plan(user_request, vectorstore, llm):
     k = 6 if intent == "study_structure" else 4
     results = vectorstore.similarity_search(retrieval_query, k=k)
 
-    context = "\n\n".join([doc.page_content for doc in results])
+    context = build_context_from_docs(results)
 
     print("DEBUG contextual intent:", intent)
     print("DEBUG contextual retrieval_query:", retrieval_query)
     print("DEBUG contextual k:", k)
 
-    sources = []
-    for doc in results:
-        page = doc.metadata.get("page", "unknown")
-        if page != "unknown":
-            sources.append(f"Page {page + 1}")
-        else:
-            sources.append("Page unknown")
-
-    sources = list(dict.fromkeys(sources))
+    sources = extract_sources(results)
 
     prompt = f"""
 You are an expert university admission assistant.
@@ -277,6 +398,20 @@ Prefer fewer but more accurate facts over many weak facts.
     response = llm.invoke(prompt)
     text = response.content.strip()
 
+    print("DEBUG CONTEXTUAL RAW RESPONSE:")
+    print(repr(response.content))
+    print("DEBUG CONTEXTUAL STRIPPED TEXT:")
+    print(repr(text))
+
+    if not text:
+        fallback = build_study_plan(user_request, llm)
+        return {
+            "mode": "fallback_plan",
+            "request": user_request,
+            "answer": fallback["answer"],
+            "sources": sources
+        }
+
     document_facts = []
     missing_info = []
     answer = text
@@ -326,6 +461,7 @@ Prefer fewer but more accurate facts over many weak facts.
         "answer": answer,
         "sources": sources
     }
+    
 
 # --- загрузка и подготовка базы один раз при старте ---
 loader = PyPDFLoader("data/uni.pdf")
@@ -341,7 +477,7 @@ embeddings = OpenAIEmbeddings()
 vectorstore = FAISS.from_documents(chunks, embeddings)
 
 llm = ChatOpenAI(
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     temperature=0,
     max_tokens=600
 )
@@ -357,6 +493,19 @@ class QuestionRequest(BaseModel):
         "json_schema_extra": {
             "example": {
                 "question": "what English level is required"
+            }
+        }
+    }
+    
+class WebQuestionRequest(BaseModel):
+    url: str
+    question: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "url": "https://www.aau.at/en/studien/bachelor-digital-media-culture-and-communication/",
+                "question": "What is the name of the program?"
             }
         }
     }
@@ -386,8 +535,7 @@ def assistant(request: QuestionRequest):
     print("DEBUG detected_intent:", intent)
     print("DEBUG is_factual:", factual)
 
-    plan_intents = {"documents", "admission", "deadline", "study_structure"}
-
+    plan_intents = {"documents", "admission", "deadline", "study_structure", "language"}
     # 1. If the question is factual, try RAG first
     if factual:
         print("DEBUG route: factual -> rag")
@@ -434,3 +582,83 @@ def assistant(request: QuestionRequest):
         return plan_result
 
     return rag_result
+
+@app.post("/web-ask")
+def web_ask(request: WebQuestionRequest):
+    web_vectorstore = build_web_vectorstore(request.url, embeddings)
+    return ask_question(request.question, web_vectorstore, llm)
+
+@app.post("/web-assistant")
+def web_assistant(request: WebQuestionRequest):
+    web_vectorstore = build_web_vectorstore(request.url, embeddings)
+
+    query = request.question.strip()
+    intent = detect_query_intent(query)
+    factual = is_factual_question(query)
+
+    print("DEBUG web query:", query)
+    print("DEBUG web detected_intent:", intent)
+    print("DEBUG web is_factual:", factual)
+
+    plan_intents = {"documents", "admission", "deadline", "study_structure", "language"}
+    # 1. If factual -> use RAG first
+    if factual:
+        print("DEBUG web route: factual -> rag")
+        rag_result = ask_question(query, web_vectorstore, llm)
+        print("DEBUG web rag_result:", rag_result)
+
+        answer_text = rag_result["answer"].strip().lower()
+
+        if "i don't know" in answer_text or "i do not know" in answer_text:
+            if intent in plan_intents:
+                print("DEBUG web route: rag -> contextual_plan")
+                contextual_result = build_contextual_plan(query, web_vectorstore, llm)
+
+                has_facts = len(contextual_result["document_facts"]) > 0
+                has_sources = len(contextual_result["sources"]) > 0
+
+                if has_facts or has_sources:
+                    return contextual_result
+
+            print("DEBUG web route: fallback_plan")
+            plan_result = build_study_plan(query, llm)
+            plan_result["mode"] = "fallback_plan"
+            return plan_result
+
+        print("DEBUG web route: rag")
+        return rag_result
+
+    # 2. If broader guidance question -> contextual plan
+    if intent in plan_intents:
+        print("DEBUG web route: contextual_plan")
+        return build_contextual_plan(query, web_vectorstore, llm)
+
+    # 3. Default to RAG
+    print("DEBUG web route: default rag")
+    rag_result = ask_question(query, web_vectorstore, llm)
+    print("DEBUG web rag_result:", rag_result)
+
+    answer_text = rag_result["answer"].strip().lower()
+
+    if "i don't know" in answer_text or "i do not know" in answer_text:
+        print("DEBUG web route: fallback_plan")
+        plan_result = build_study_plan(query, llm)
+        plan_result["mode"] = "fallback_plan"
+        return plan_result
+
+    return rag_result
+
+@app.post("/web-preview")
+def web_preview(request: WebQuestionRequest):
+    docs = load_web_documents_from_url(request.url)
+
+    if not docs:
+        return {"error": "No documents loaded"}
+
+    doc = docs[0]
+    return {
+        "source": doc.metadata.get("source"),
+        "title": doc.metadata.get("title"),
+        "language": doc.metadata.get("language"),
+        "preview": doc.page_content[:1500]
+    }
