@@ -20,6 +20,8 @@ from langchain_community.vectorstores import FAISS
 
 app = FastAPI(title="Uni Assistant API")
 
+WEB_VECTORSTORE_CACHE = {}
+
 def is_factual_question(query: str) -> bool:
     lowered = query.lower().strip()
 
@@ -42,6 +44,36 @@ def is_factual_question(query: str) -> bool:
     ]
 
     return any(lowered.startswith(start) for start in factual_starts)
+
+def detect_answer_mode(query: str) -> str:
+    lowered = query.lower().strip()
+
+    if any(phrase in lowered for phrase in [
+        "what should i",
+        "how should i",
+        "how do i prepare",
+        "how should i prepare",
+        "what should i prepare",
+        "what should i focus on",
+        "how should i plan",
+        "what do i need to do",
+        "what steps should i take",
+        "how do i apply"
+    ]):
+        return "guidance_plan"
+
+    if any(phrase in lowered for phrase in [
+        "what does this page say about",
+        "what requirements are clearly stated",
+        "what requirements are stated",
+        "what deadlines are mentioned",
+        "what is clearly stated",
+        "what is mentioned on this page",
+        "what does the page mention"
+    ]):
+        return "evidence_summary"
+
+    return "direct_answer"
 
 def detect_query_intent(query: str) -> str:
     lowered = query.lower().strip()
@@ -154,7 +186,15 @@ def load_web_documents_from_url(url: str):
     return docs
 
 def build_web_vectorstore(url: str, embeddings):
-    docs = load_web_documents_from_url(url)
+    normalized_url = url.strip()
+
+    if normalized_url in WEB_VECTORSTORE_CACHE:
+        print(f"DEBUG web cache hit: {normalized_url}")
+        return WEB_VECTORSTORE_CACHE[normalized_url]
+
+    print(f"DEBUG web cache miss: {normalized_url}")
+
+    docs = load_web_documents_from_url(normalized_url)
 
     for doc in docs:
         metadata = doc.metadata or {}
@@ -177,6 +217,8 @@ def build_web_vectorstore(url: str, embeddings):
     chunks = splitter.split_documents(docs)
 
     vectorstore = FAISS.from_documents(chunks, embeddings)
+
+    WEB_VECTORSTORE_CACHE[normalized_url] = vectorstore
     return vectorstore
 
 def extract_sources(results):
@@ -305,6 +347,125 @@ User request:
         "sources": []
     }
     
+    
+def build_evidence_summary(user_request, vectorstore, llm):
+    intent = detect_query_intent(user_request)
+    retrieval_query = build_retrieval_query(user_request)
+
+    k = 6 if intent in {"deadline", "admission", "study_structure", "language"} else 4
+    results = vectorstore.similarity_search(retrieval_query, k=k)
+
+    context = build_context_from_docs(results)
+
+    print("DEBUG summary intent:", intent)
+    print("DEBUG summary retrieval_query:", retrieval_query)
+    print("DEBUG summary k:", k)
+
+    sources = extract_sources(results)
+
+    prompt = f"""
+You are an expert university admission assistant.
+
+Your task is to answer the user's question by summarizing only what is clearly supported by the document context.
+
+Rules:
+- Answer the user's question directly.
+- Prioritize extraction over advice.
+- Do NOT turn the answer into a step-by-step plan unless the user explicitly asks for guidance.
+- Separate clearly:
+  1. what is explicitly stated
+  2. what is not stated / missing
+- Keep the answer concise and practical.
+- Write in the same language as the user's question.
+
+Document context:
+{context}
+
+User request:
+{user_request}
+
+Return the result in exactly this format:
+
+DOCUMENT_FACTS:
+- ...
+- ...
+
+MISSING_INFO:
+- ...
+- ...
+"""
+
+    response = llm.invoke(prompt)
+    text = response.content.strip()
+
+    print("DEBUG SUMMARY RAW RESPONSE:")
+    print(repr(response.content))
+    print("DEBUG SUMMARY STRIPPED TEXT:")
+    print(repr(text))
+
+    if not text:
+        fallback = build_study_plan(user_request, llm)
+        return {
+            "mode": "fallback_plan",
+            "request": user_request,
+            "answer": fallback["answer"],
+            "sources": sources
+        }
+
+    document_facts = []
+    missing_info = []
+    answer_parts = []
+
+    section = None
+
+    for line in text.splitlines():
+        stripped = line.strip()
+
+        if stripped.upper() == "DOCUMENT_FACTS:":
+            section = "facts"
+            continue
+        elif stripped.upper() == "MISSING_INFO:":
+            section = "missing"
+            continue
+
+        if not stripped:
+            continue
+
+        if section == "facts":
+            if stripped.startswith("-"):
+                document_facts.append(stripped[1:].strip())
+            else:
+                document_facts.append(stripped)
+        elif section == "missing":
+            if stripped.startswith("-"):
+                missing_info.append(stripped[1:].strip())
+            else:
+                missing_info.append(stripped)
+
+    if document_facts:
+        answer_parts.append("Clearly stated:")
+        for fact in document_facts:
+            answer_parts.append(f"- {fact}")
+
+    if missing_info:
+        answer_parts.append("")
+        answer_parts.append("Not stated / unclear:")
+        for item in missing_info:
+            answer_parts.append(f"- {item}")
+
+    answer = "\n".join(answer_parts).strip()
+
+    if not answer:
+        answer = text
+
+    return {
+        "mode": "evidence_summary",
+        "question": user_request,
+        "document_facts": document_facts,
+        "missing_info": missing_info,
+        "answer": answer,
+        "sources": sources
+    }
     
 def build_contextual_plan(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
@@ -530,14 +691,16 @@ def assistant(request: QuestionRequest):
     query = request.question.strip()
     intent = detect_query_intent(query)
     factual = is_factual_question(query)
+    answer_mode = detect_answer_mode(query)
 
     print("DEBUG query:", query)
     print("DEBUG detected_intent:", intent)
     print("DEBUG is_factual:", factual)
+    print("DEBUG answer_mode:", answer_mode)
 
     plan_intents = {"documents", "admission", "deadline", "study_structure", "language"}
-    # 1. If the question is factual, try RAG first
-    if factual:
+
+    if factual and answer_mode == "direct_answer":
         print("DEBUG route: factual -> rag")
         rag_result = ask_question(query, vectorstore, llm)
         print("DEBUG rag_result:", rag_result)
@@ -546,29 +709,24 @@ def assistant(request: QuestionRequest):
 
         if "i don't know" in answer_text or "i do not know" in answer_text:
             if intent in plan_intents:
-                print("DEBUG route: rag -> contextual_plan")
-                contextual_result = build_contextual_plan(query, vectorstore, llm)
-
-                has_facts = len(contextual_result["document_facts"]) > 0
-                has_sources = len(contextual_result["sources"]) > 0
-
-                if has_facts or has_sources:
-                    return contextual_result
+                print("DEBUG route: rag -> evidence_summary")
+                return build_evidence_summary(query, vectorstore, llm)
 
             print("DEBUG route: fallback_plan")
             plan_result = build_study_plan(query, llm)
             plan_result["mode"] = "fallback_plan"
             return plan_result
 
-        print("DEBUG route: rag")
         return rag_result
 
-    # 2. If it is not factual, but is a planning/high-guidance intent -> contextual plan
-    if intent in plan_intents:
+    if answer_mode == "evidence_summary":
+        print("DEBUG route: evidence_summary")
+        return build_evidence_summary(query, vectorstore, llm)
+
+    if answer_mode == "guidance_plan":
         print("DEBUG route: contextual_plan")
         return build_contextual_plan(query, vectorstore, llm)
 
-    # 3. Otherwise default to rag
     print("DEBUG route: default rag")
     rag_result = ask_question(query, vectorstore, llm)
     print("DEBUG rag_result:", rag_result)
@@ -595,14 +753,16 @@ def web_assistant(request: WebQuestionRequest):
     query = request.question.strip()
     intent = detect_query_intent(query)
     factual = is_factual_question(query)
+    answer_mode = detect_answer_mode(query)
 
     print("DEBUG web query:", query)
     print("DEBUG web detected_intent:", intent)
     print("DEBUG web is_factual:", factual)
+    print("DEBUG web answer_mode:", answer_mode)
 
     plan_intents = {"documents", "admission", "deadline", "study_structure", "language"}
-    # 1. If factual -> use RAG first
-    if factual:
+
+    if factual and answer_mode == "direct_answer":
         print("DEBUG web route: factual -> rag")
         rag_result = ask_question(query, web_vectorstore, llm)
         print("DEBUG web rag_result:", rag_result)
@@ -611,29 +771,24 @@ def web_assistant(request: WebQuestionRequest):
 
         if "i don't know" in answer_text or "i do not know" in answer_text:
             if intent in plan_intents:
-                print("DEBUG web route: rag -> contextual_plan")
-                contextual_result = build_contextual_plan(query, web_vectorstore, llm)
-
-                has_facts = len(contextual_result["document_facts"]) > 0
-                has_sources = len(contextual_result["sources"]) > 0
-
-                if has_facts or has_sources:
-                    return contextual_result
+                print("DEBUG web route: rag -> evidence_summary")
+                return build_evidence_summary(query, web_vectorstore, llm)
 
             print("DEBUG web route: fallback_plan")
             plan_result = build_study_plan(query, llm)
             plan_result["mode"] = "fallback_plan"
             return plan_result
 
-        print("DEBUG web route: rag")
         return rag_result
 
-    # 2. If broader guidance question -> contextual plan
-    if intent in plan_intents:
+    if answer_mode == "evidence_summary":
+        print("DEBUG web route: evidence_summary")
+        return build_evidence_summary(query, web_vectorstore, llm)
+
+    if answer_mode == "guidance_plan":
         print("DEBUG web route: contextual_plan")
         return build_contextual_plan(query, web_vectorstore, llm)
 
-    # 3. Default to RAG
     print("DEBUG web route: default rag")
     rag_result = ask_question(query, web_vectorstore, llm)
     print("DEBUG web rag_result:", rag_result)
