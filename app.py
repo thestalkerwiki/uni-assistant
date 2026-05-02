@@ -49,6 +49,7 @@ def detect_answer_mode(query: str) -> str:
     lowered = query.lower().strip()
 
     if any(phrase in lowered for phrase in [
+        # English
         "what should i",
         "how should i",
         "how do i prepare",
@@ -58,18 +59,57 @@ def detect_answer_mode(query: str) -> str:
         "how should i plan",
         "what do i need to do",
         "what steps should i take",
-        "how do i apply"
+        "how do i apply",
+
+        # Russian
+        "что мне подготовить",
+        "как мне подготовиться",
+        "как подготовиться",
+        "что нужно подготовить",
+        "на чем сфокусироваться",
+        "как спланировать",
+        "что мне делать",
+        "какие шаги",
+
+        # German
+        "was soll ich vorbereiten",
+        "wie soll ich mich vorbereiten",
+        "wie bereite ich mich",
+        "worauf soll ich achten",
+        "was muss ich vorbereiten",
+        "welche schritte"
     ]):
         return "guidance_plan"
 
     if any(phrase in lowered for phrase in [
+        # English
         "what does this page say about",
         "what requirements are clearly stated",
         "what requirements are stated",
         "what deadlines are mentioned",
         "what is clearly stated",
         "what is mentioned on this page",
-        "what does the page mention"
+        "what does the page mention",
+
+        # Russian
+        "что говорится на этой странице",
+        "что сказано на этой странице",
+        "какие требования явно указаны",
+        "какие требования указаны",
+        "какие дедлайны указаны",
+        "какие сроки указаны",
+        "что явно указано",
+        "что упомянуто на этой странице",
+
+        # German
+        "was steht auf dieser seite",
+        "was sagt diese seite",
+        "welche voraussetzungen sind",
+        "welche anforderungen sind",
+        "welche fristen werden",
+        "welche deadlines werden",
+        "was ist klar angegeben",
+        "was wird auf dieser seite erwähnt"
     ]):
         return "evidence_summary"
 
@@ -79,10 +119,20 @@ def detect_query_intent(query: str) -> str:
     lowered = query.lower().strip()
 
     if any(word in lowered for word in [
-        "deadline", "deadlines", "when is", "until when", "due date",
-        "application deadline", "start date", "semester start"
+    # English
+        "language of instruction", "taught in",
+        "what language is the program taught in",
+
+    # Russian
+        "язык обучения", "на каком языке", "преподается",
+        "преподаётся", "какой язык программы",
+
+    # German
+        "unterrichtssprache", "sprache des studiums",
+        "auf welcher sprache", "in welcher sprache",
+        "wird der studiengang unterrichtet"
     ]):
-        return "deadline"
+        return "language"
 
     if any(word in lowered for word in [
         "document", "documents", "certificate", "certificates",
@@ -92,10 +142,21 @@ def detect_query_intent(query: str) -> str:
         return "documents"
 
     if any(word in lowered for word in [
+    # English
         "admission", "apply", "application", "requirements",
         "eligible", "eligibility", "before applying",
         "how should i prepare", "what do i need before applying",
-        "how to apply"
+        "how to apply",
+
+    # Russian
+        "поступление", "подать заявку", "заявка", "требования",
+        "допуск", "перед подачей", "перед поступлением",
+        "как подготовиться", "что нужно подготовить",
+
+    # German
+        "bewerbung", "zulassung", "voraussetzungen",
+        "anforderungen", "bewerben", "einschreibung",
+        "immatrikulation", "vor der bewerbung"
     ]):
         return "admission"
     
@@ -121,6 +182,27 @@ def detect_query_intent(query: str) -> str:
         return "language"
 
     return "general"
+
+def detect_response_language(query: str) -> str:
+    lowered = query.lower()
+
+    # Russian / Cyrillic
+    if any("а" <= char <= "я" or char == "ё" for char in lowered):
+        return "Russian"
+
+    # German markers
+    german_markers = [
+        "was ", "wie ", "welche", "welcher", "welches",
+        "studiengang", "bewerbung", "zulassung",
+        "voraussetzungen", "frist", "fristen",
+        "unterrichtssprache", "dauer", "semester",
+        "auf deutsch", "deutsch"
+    ]
+
+    if any(marker in lowered for marker in german_markers):
+        return "German"
+
+    return "English"
 
 def build_retrieval_query(user_query: str) -> str:
     intent = detect_query_intent(user_query)
@@ -273,6 +355,7 @@ def build_context_from_docs(results):
 def ask_question(query, vectorstore, llm):
     retrieval_query = build_retrieval_query(query)
     intent = detect_query_intent(query)
+    response_language = detect_response_language(query)
 
     k = 8 if intent == "language" else 3
     results = vectorstore.similarity_search(retrieval_query, k=k)
@@ -288,6 +371,11 @@ def ask_question(query, vectorstore, llm):
 Answer ONLY based on the context below.
 If the answer is not in the context, say "I don't know".
 
+Rules:
+- Answer directly and concisely.
+- Write the final answer in {response_language}.
+- If you say "I don't know", write it in {response_language}.
+
 Context:
 {context}
 
@@ -300,6 +388,7 @@ Question:
     print("DEBUG ask intent:", intent)
     print("DEBUG ask retrieval_query:", retrieval_query)
     print("DEBUG ask k:", k)
+    print("DEBUG response_language:", response_language)
 
     sources = extract_sources(results)
 
@@ -311,6 +400,7 @@ Question:
     }
 
 def build_study_plan(user_request, llm):
+    response_language = detect_response_language(user_request)
     prompt = f"""
 You are an expert university admission assistant.
 
@@ -325,6 +415,7 @@ Requirements:
 - Keep it simple and clear
 - If the request is too general, say what information is missing
 - Then provide a helpful general plan anyway
+- Write the final answer in {response_language}.
 
 User request:
 {user_request}
@@ -334,7 +425,18 @@ User request:
     text = response.content.strip()
 
     if not text:
-        text = (
+        if response_language == "Russian":
+            text = (
+            "Я пока не смог сформировать подробный план для этого запроса. "
+            "Попробуй переформулировать вопрос или спросить конкретнее про admission, documents, deadlines или study structure."
+        )
+        elif response_language == "German":
+            text = (
+            "Ich konnte für diese Anfrage noch keinen detaillierten Plan erstellen. "
+            "Bitte formuliere die Frage genauer oder frage konkreter zu admission, documents, deadlines oder study structure."
+        )
+        else:
+            text = (
             "I could not generate a detailed plan for this request yet. "
             "Please try rephrasing the question or ask a more specific question "
             "about admission, documents, deadlines, or study structure."
@@ -350,6 +452,7 @@ User request:
     
 def build_evidence_summary(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
+    response_language = detect_response_language(user_request)
     retrieval_query = build_retrieval_query(user_request)
 
     k = 6 if intent in {"deadline", "admission", "study_structure", "language"} else 4
@@ -376,7 +479,7 @@ Rules:
   1. what is explicitly stated
   2. what is not stated / missing
 - Keep the answer concise and practical.
-- Write in the same language as the user's question.
+- Write the final answer in {response_language}.
 
 Document context:
 {context}
@@ -469,6 +572,7 @@ MISSING_INFO:
     
 def build_contextual_plan(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
+    response_language = detect_response_language(user_request)
     retrieval_query = build_retrieval_query(user_request)
 
     k = 6 if intent == "study_structure" else 4
@@ -502,7 +606,7 @@ Strict rules:
   "General guidance:"
 - Do NOT present general guidance as if it came from the document.
 - Keep the answer practical, concise, and question-focused.
-- Write in English only.
+- Write the final answer in {response_language}.
 
 Document context:
 {context}
