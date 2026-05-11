@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -245,6 +246,89 @@ def build_retrieval_query(user_query: str) -> str:
 
     return user_query
 
+def clean_web_text(text: str) -> str:
+    if not text:
+        return ""
+
+    # Normalize line endings first, but keep line structure
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    noise_phrases = [
+        "page navigation",
+        "about the university",
+        "organisation",
+        "faculties",
+        "working at university of graz",
+        "developing solutions for the world of tomorrow",
+        "research profile",
+        "research questions",
+        "research portal",
+        "promoting research",
+        "research transfer",
+        "ethics in research",
+        "commission for scientific integrity",
+        "prospective students",
+        "post-registration",
+        "to improve support for screen readers",
+        "to deactivate improved support",
+        "go to overview of page sections",
+        "begin of page section",
+        "end of this page section",
+        "go to contents",
+        "go to position marker",
+        "go to main navigation",
+        "go to additional information",
+        "go to page settings",
+        "accesskey",
+        "page sections",
+        "page settings",
+        "main navigation",
+        "additional information",
+        "accessibility declaration",
+        "data protection declaration",
+        "imprint",
+        "sitemap",
+        "web editors",
+        "moodle",
+        "unigrazonline",
+        "zur hauptnavigation springen",
+        "zum inhaltsbereich springen",
+        "leichte sprache",
+        "barrierefreiheit",
+
+    ]
+
+    cleaned_lines = []
+
+    for line in text.split("\n"):
+        line = line.strip()
+
+        if not line:
+            continue
+
+        lowered = line.lower()
+
+        # Remove obvious accessibility/navigation lines
+        if any(phrase in lowered for phrase in noise_phrases):
+            continue
+
+        # Remove very short menu-like lines
+        if len(line) <= 2:
+            continue
+
+        cleaned_lines.append(line)
+
+    text = " ".join(cleaned_lines)
+
+    # Remove repeated leftover phrases
+    text = re.sub(r"(Go to overview of page sections\s*)+", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"(End of this page section\.\s*)+", " ", text, flags=re.IGNORECASE)
+
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
 def load_web_documents_from_url(url: str):
     loader = WebBaseLoader(
         url,
@@ -258,6 +342,13 @@ def load_web_documents_from_url(url: str):
         }
     )
     docs = loader.load()
+
+    for doc in docs:
+        before_length = len(doc.page_content)
+        doc.page_content = clean_web_text(doc.page_content)
+        after_length = len(doc.page_content)
+
+        print(f"DEBUG web clean length: {before_length} -> {after_length}")
 
     if docs:
         print("DEBUG WEB TITLE:", docs[0].metadata.get("title"))
@@ -774,6 +865,9 @@ class WebQuestionRequest(BaseModel):
             }
         }
     }
+    
+class WebPreviewRequest(BaseModel):
+    url: str
 
 @app.get("/")
 def root():
@@ -908,13 +1002,19 @@ def web_assistant(request: WebQuestionRequest):
     return rag_result
 
 @app.post("/web-preview")
-def web_preview(request: WebQuestionRequest):
+def web_preview(request: WebPreviewRequest):
     docs = load_web_documents_from_url(request.url)
 
     if not docs:
-        return {"error": "No documents loaded"}
+        return {
+            "source": request.url,
+            "title": None,
+            "language": None,
+            "preview": ""
+        }
 
     doc = docs[0]
+
     return {
         "source": doc.metadata.get("source"),
         "title": doc.metadata.get("title"),
