@@ -134,6 +134,25 @@ def detect_query_intent(query: str) -> str:
         "wird der studiengang unterrichtet"
     ]):
         return "language"
+    
+    if any(word in lowered for word in [
+        # English
+        "deadline", "deadlines", "when is", "until when",
+        "due date", "application deadline", "start date",
+        "semester start", "admission period", "application period",
+
+        # Russian
+        "дедлайн", "дедлайны", "срок", "сроки",
+        "до какого", "когда подавать", "период подачи",
+        "срок подачи", "сроки подачи", "дата начала",
+        "начало семестра",
+
+        # German
+        "frist", "fristen", "bewerbungsfrist",
+        "bis wann", "zeitraum", "bewerbungszeitraum",
+        "zulassungsfrist", "anmeldefrist", "semesterbeginn"
+    ]):
+        return "deadline"
 
     if any(word in lowered for word in [
         "document", "documents", "certificate", "certificates",
@@ -231,9 +250,10 @@ def build_retrieval_query(user_query: str) -> str:
     if intent == "language":
         return (
             f"{user_query} "
-            "fact box language of instruction english "
-            "\"Language of instruction: English\" "
-            "programme type duration ects structure degree prerequisites"
+            "language of instruction teaching language Unterrichtssprache "
+            "program language programme language taught in "
+            "language requirements CEFR english german deutsch "
+            "programme type duration ects degree prerequisites"
         )
 
     if intent == "study_structure":
