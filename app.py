@@ -394,6 +394,20 @@ def build_web_vectorstore(url: str, embeddings):
     WEB_VECTORSTORE_CACHE[normalized_url] = vectorstore
     return vectorstore
 
+def normalize_urls(urls: list[str]) -> list[str]:
+    cleaned_urls = []
+
+    for url in urls:
+        normalized_url = url.strip()
+
+        if not normalized_url:
+            continue
+
+        if normalized_url not in cleaned_urls:
+            cleaned_urls.append(normalized_url)
+
+    return cleaned_urls
+
 def extract_sources(results):
     sources = []
 
@@ -866,6 +880,18 @@ class WebQuestionRequest(BaseModel):
         }
     }
     
+class WebMultiQuestionRequest(BaseModel):
+    urls: list[str] = Field(
+        ...,
+        min_length=1,
+        description="List of official university page URLs to use as sources"
+    )
+    question: str = Field(
+        ...,
+        min_length=1,
+        description="User question about the provided sources"
+    )
+
 class WebPreviewRequest(BaseModel):
     url: str
 
