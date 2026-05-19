@@ -71,6 +71,12 @@ def detect_answer_mode(query: str) -> str:
         "как спланировать",
         "что мне делать",
         "какие шаги",
+        "что я должен подготовить",
+        "что мне нужно подготовить",
+        "что надо подготовить",
+        "что подготовить",
+        "как поступить",
+        "чтобы поступить",
 
         # German
         "was soll ich vorbereiten",
@@ -169,9 +175,12 @@ def detect_query_intent(query: str) -> str:
         "how to apply",
 
     # Russian
-        "поступление", "подать заявку", "заявка", "требования",
+        "поступление", "поступить", "как поступить", "чтобы поступить",
+        "подать заявку", "заявка", "требования",
         "допуск", "перед подачей", "перед поступлением",
         "как подготовиться", "что нужно подготовить",
+        "что я должен подготовить", "что мне нужно подготовить",
+        "что надо подготовить", "что подготовить",
 
     # German
         "bewerbung", "zulassung", "voraussetzungen",
@@ -195,11 +204,6 @@ def detect_query_intent(query: str) -> str:
     "structure", "program structure", "study structure"
     ]):
         return "study_structure"
-    
-    if any(word in lowered for word in [
-    "language of instruction", "taught in", "what language is the program taught in"
-    ]):
-        return "language"
 
     return "general"
 
@@ -843,11 +847,42 @@ Prefer fewer but more accurate facts over many weak facts.
     print(repr(text))
 
     if not text:
-        fallback = build_study_plan(user_request, llm)
+        fallback_prompt = f"""
+    You are an expert university admission assistant.
+
+    The previous structured response was empty. 
+    Use the document context below and answer the user's request directly.
+
+    Rules:
+    - Use only the document context as factual basis.
+    - If something is not stated, say that it is not stated.
+    - Give a short practical plan.
+    - Keep the answer concise.
+    - Write the final answer in {response_language}.
+    - Mark general advice with "General guidance:".
+
+    Document context:
+    {context}
+
+    User request:
+    {user_request}
+    """
+
+        fallback_response = llm.invoke(fallback_prompt)
+        fallback_text = fallback_response.content.strip()
+
+        if not fallback_text:
+            fallback_text = (
+                "I could not generate a grounded answer from the provided sources. "
+                "Please try asking a more specific question about admission, documents, deadlines, or language requirements."
+            )
+
         return {
-            "mode": "fallback_plan",
-            "request": user_request,
-            "answer": fallback["answer"],
+            "mode": "contextual_plan_fallback",
+            "question": user_request,
+            "document_facts": [],
+            "missing_info": [],
+            "answer": fallback_text,
             "sources": sources
         }
 
@@ -1090,6 +1125,64 @@ def web_assistant(request: WebQuestionRequest):
 
     if "i don't know" in answer_text or "i do not know" in answer_text:
         print("DEBUG web route: fallback_plan")
+        plan_result = build_study_plan(query, llm)
+        plan_result["mode"] = "fallback_plan"
+        return plan_result
+
+    return rag_result
+
+@app.post("/web-multi-assistant")
+def web_multi_assistant(request: WebMultiQuestionRequest):
+    web_vectorstore = build_web_vectorstore_from_urls(request.urls, embeddings)
+
+    query = request.question.strip()
+    intent = detect_query_intent(query)
+    factual = is_factual_question(query)
+    answer_mode = detect_answer_mode(query)
+
+    print("DEBUG web multi urls:", normalize_urls(request.urls))
+    print("DEBUG web multi query:", query)
+    print("DEBUG web multi detected_intent:", intent)
+    print("DEBUG web multi is_factual:", factual)
+    print("DEBUG web multi answer_mode:", answer_mode)
+
+    plan_intents = {"documents", "admission", "deadline", "study_structure", "language"}
+
+    if factual and answer_mode == "direct_answer":
+        print("DEBUG web multi route: factual -> rag")
+        rag_result = ask_question(query, web_vectorstore, llm)
+        print("DEBUG web multi rag_result:", rag_result)
+
+        answer_text = rag_result["answer"].strip().lower()
+
+        if "i don't know" in answer_text or "i do not know" in answer_text:
+            if intent in plan_intents:
+                print("DEBUG web multi route: rag -> evidence_summary")
+                return build_evidence_summary(query, web_vectorstore, llm)
+
+            print("DEBUG web multi route: fallback_plan")
+            plan_result = build_study_plan(query, llm)
+            plan_result["mode"] = "fallback_plan"
+            return plan_result
+
+        return rag_result
+
+    if answer_mode == "evidence_summary":
+        print("DEBUG web multi route: evidence_summary")
+        return build_evidence_summary(query, web_vectorstore, llm)
+
+    if answer_mode == "guidance_plan":
+        print("DEBUG web multi route: contextual_plan")
+        return build_contextual_plan(query, web_vectorstore, llm)
+
+    print("DEBUG web multi route: default rag")
+    rag_result = ask_question(query, web_vectorstore, llm)
+    print("DEBUG web multi rag_result:", rag_result)
+
+    answer_text = rag_result["answer"].strip().lower()
+
+    if "i don't know" in answer_text or "i do not know" in answer_text:
+        print("DEBUG web multi route: fallback_plan")
         plan_result = build_study_plan(query, llm)
         plan_result["mode"] = "fallback_plan"
         return plan_result
