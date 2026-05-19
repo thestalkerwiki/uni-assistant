@@ -414,6 +414,55 @@ def build_web_vectorstore(url: str, embeddings):
     WEB_VECTORSTORE_CACHE[normalized_url] = vectorstore
     return vectorstore
 
+def build_web_vectorstore_from_urls(urls: list[str], embeddings):
+    normalized_urls = normalize_urls(urls)
+
+    if not normalized_urls:
+        raise ValueError("No valid URLs provided")
+
+    cache_key = "multi::" + "|".join(sorted(normalized_urls))
+
+    if cache_key in WEB_VECTORSTORE_CACHE:
+        print(f"DEBUG web multi cache hit: {cache_key}")
+        return WEB_VECTORSTORE_CACHE[cache_key]
+
+    print(f"DEBUG web multi cache miss: {cache_key}")
+
+    all_docs = []
+
+    for url in normalized_urls:
+        docs = load_web_documents_from_url(url)
+
+        for doc in docs:
+            metadata = doc.metadata or {}
+            title = metadata.get("title", "")
+            source = metadata.get("source", url)
+
+            header_parts = []
+
+            if title:
+                header_parts.append(f"Title: {title}")
+
+            if source:
+                header_parts.append(f"Source: {source}")
+
+            if header_parts:
+                doc.page_content = "\n".join(header_parts) + "\n\n" + doc.page_content
+
+            all_docs.append(doc)
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=100
+    )
+
+    chunks = splitter.split_documents(all_docs)
+
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+
+    WEB_VECTORSTORE_CACHE[cache_key] = vectorstore
+    return vectorstore
+
 def normalize_urls(urls: list[str]) -> list[str]:
     cleaned_urls = []
 
