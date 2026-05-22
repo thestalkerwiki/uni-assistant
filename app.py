@@ -767,23 +767,28 @@ def build_contextual_plan(user_request, vectorstore, llm):
     prompt = f"""
 You are an expert university admission assistant.
 
-Your task is to answer the user's request using the document context below.
+Answer the user's request using ONLY the document context below as the factual basis.
 
-You must produce:
-1. DOCUMENT_FACTS -> only facts directly supported by the document context
-2. MISSING_INFO -> only information needed for the user's request but NOT stated in the document context
-3. PLAN -> a practical numbered plan
+Return the answer in exactly this structure:
 
-Strict rules:
-- Use the document context as the primary source of truth.
-- Include in DOCUMENT_FACTS only facts relevant to the user's specific request.
-- Do NOT include unrelated facts, even if they appear in the document.
-- Do NOT put something in MISSING_INFO if it is already stated in the document context.
-- If the document does not fully answer the question, you may add general guidance in PLAN.
-- Every step in PLAN that is based on general knowledge rather than the document must begin with:
-  "General guidance:"
-- Do NOT present general guidance as if it came from the document.
-- Keep the answer practical, concise, and question-focused.
+DOCUMENT_FACTS:
+- facts that are directly supported by the context
+- only include facts relevant to the user's request
+
+MISSING_INFO:
+- information that would be needed to fully answer the request but is not stated in the context
+
+PLAN:
+1. practical next step
+2. practical next step
+3. practical next step
+
+Rules:
+- Do not invent facts.
+- Do not include unrelated facts.
+- If something is not stated, put it in MISSING_INFO.
+- If a PLAN step uses general advice rather than the document context, start it with "General guidance:".
+- Keep the answer concise and practical.
 - Write the final answer in {response_language}.
 
 Document context:
@@ -791,51 +796,6 @@ Document context:
 
 User request:
 {user_request}
-
-Return the result in exactly this format:
-
-DOCUMENT_FACTS:
-- ...
-- ...
-
-MISSING_INFO:
-- ...
-- ...
-
-PLAN:
-1. ...
-2. ...
-3. ...
-
-Extra instructions by intent:
-
-If the question is about documents or admission:
-- Focus on admission requirements, language requirements, and what the document does or does not specify.
-- Do not invent application checklists if they are not stated.
-
-If the question is about school background or eligibility:
-- Do not invent required school subjects if they are not stated.
-
-If the question is about study planning or program structure:
-- Prefer facts about:
-  - total ECTS
-  - duration in semesters
-  - study phases such as StEOP
-  - required subjects
-  - guided electives
-  - minors / Nebenfächer
-  - bachelor thesis
-  - recommended study flow
-  - mobility window
-- If these are present in the context, do NOT list them under MISSING_INFO.
-- Build a study plan in a sensible order:
-  start of studies -> workload/progression -> guided electives/minors -> thesis -> mobility if relevant.
-- Be especially careful with minors / Nebenfächer:
-  - do not invent ECTS values
-  - do not confuse item numbers (such as 12, 13, 14) with ECTS credits
-  - if the context states the structure clearly, preserve it exactly
-
-Prefer fewer but more accurate facts over many weak facts.
 """
 
     response = llm.invoke(prompt)
@@ -848,25 +808,25 @@ Prefer fewer but more accurate facts over many weak facts.
 
     if not text:
         fallback_prompt = f"""
-    You are an expert university admission assistant.
+You are an expert university admission assistant.
 
-    The previous structured response was empty. 
-    Use the document context below and answer the user's request directly.
+The previous structured response was empty.
+Use the document context below and answer the user's request directly.
 
-    Rules:
-    - Use only the document context as factual basis.
-    - If something is not stated, say that it is not stated.
-    - Give a short practical plan.
-    - Keep the answer concise.
-    - Write the final answer in {response_language}.
-    - Mark general advice with "General guidance:".
+Rules:
+- Use only the document context as factual basis.
+- If something is not stated, say that it is not stated.
+- Give a short practical plan.
+- Keep the answer concise.
+- Write the final answer in {response_language}.
+- Mark general advice with "General guidance:".
 
-    Document context:
-    {context}
+Document context:
+{context}
 
-    User request:
-    {user_request}
-    """
+User request:
+{user_request}
+"""
 
         fallback_response = llm.invoke(fallback_prompt)
         fallback_text = fallback_response.content.strip()
@@ -953,7 +913,7 @@ vectorstore = FAISS.from_documents(chunks, embeddings)
 llm = ChatOpenAI(
     model="gpt-5.5",
     temperature=0,
-    max_tokens=600
+    max_tokens=900
 )
 
 
