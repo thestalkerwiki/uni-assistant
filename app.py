@@ -241,8 +241,12 @@ def build_retrieval_query(user_query: str) -> str:
     if intent == "admission":
         return (
             f"{user_query} "
-            "admission requirements application eligibility english b2 "
-            "zulassungsvoraussetzungen language requirements apply"
+            "admission requirements application eligibility apply "
+            "zulassung voraussetzungen aufnahmeverfahren bewerbung "
+            "required documents application form legalisation translation "
+            "programme facts degree ects duration language of instruction "
+            "studiendauer ects-anrechnungspunkte abschluss unterrichtssprache "
+            "curriculum master bachelor"
         )
 
     if intent == "deadline":
@@ -353,6 +357,47 @@ def clean_web_text(text: str) -> str:
 
     return text
 
+def classify_source_type(url: str, text: str) -> str:
+    lowered_url = url.lower()
+    lowered_text = text.lower()
+
+    combined = lowered_url + " " + lowered_text[:3000]
+    
+    if any(marker in lowered_url for marker in [
+        "zulassungsfristen",
+        "deadlines",
+        "dates-and-deadlines",
+        "termine-fristen"
+    ]):
+        return "deadline_page"
+
+    if any(marker in lowered_url for marker in [
+        "zulassung-von-internationalen",
+        "admission-bachelor",
+        "applying",
+        "admission",
+        "bewerbung",
+        "zulassung"
+    ]):
+        return "admission_page"
+    
+    if any(marker in combined for marker in [
+        "programme", "program", "degree", "ects", "curriculum",
+        "duration", "study programme", "bachelor", "master",
+        "studiengang", "studium", "curriculum", "regelstudienzeit"
+    ]):
+        return "program_page"
+
+    if any(marker in combined for marker in [
+        "language requirements", "language proof", "proof of language",
+        "language certificate", "english b2", "german c1",
+        "cefr", "ielts", "toefl",
+        "sprachnachweis", "sprachkenntnisse", "unterrichtssprache"
+    ]):
+        return "language_page"
+
+    return "unknown"
+
 def load_web_documents_from_url(url: str):
     loader = WebBaseLoader(
         url,
@@ -372,7 +417,12 @@ def load_web_documents_from_url(url: str):
         doc.page_content = clean_web_text(doc.page_content)
         after_length = len(doc.page_content)
 
+        source_url = doc.metadata.get("source", url)
+        source_type = classify_source_type(source_url, doc.page_content)
+        doc.metadata["source_type"] = source_type
+
         print(f"DEBUG web clean length: {before_length} -> {after_length}")
+        print(f"DEBUG web source type: {source_type}")
 
     if docs:
         print("DEBUG WEB TITLE:", docs[0].metadata.get("title"))
@@ -515,6 +565,7 @@ def build_context_from_docs(results):
         metadata = doc.metadata or {}
         title = metadata.get("title", "")
         source = metadata.get("source", "")
+        source_type = metadata.get("source_type", "")
         content = doc.page_content.strip()
 
         meta_block = []
@@ -522,6 +573,8 @@ def build_context_from_docs(results):
             meta_block.append(f"Title: {title}")
         if source:
             meta_block.append(f"Source: {source}")
+        if source_type:
+            meta_block.append(f"Source type: {source_type}")
 
         if meta_block:
             parts.append("\n".join(meta_block) + f"\nContent:\n{content}")
@@ -652,6 +705,9 @@ Your task is to answer the user's question by summarizing only what is clearly s
 Rules:
 - Answer the user's question directly.
 - Prioritize extraction over advice.
+- Extract concrete facts with values whenever available: dates, deadlines, ECTS, duration, degree, language, required forms, document language, applicant categories.
+- Avoid vague observations such as "students should check..." unless that is the only information stated.
+- Prefer "field: value" style facts when possible.
 - Do NOT turn the answer into a step-by-step plan unless the user explicitly asks for guidance.
 - Separate clearly:
   1. what is explicitly stated
@@ -786,6 +842,10 @@ PLAN:
 Rules:
 - Do not invent facts.
 - Do not include unrelated facts.
+- In DOCUMENT_FACTS, prefer concrete extracted facts with values: degree, ECTS, duration, language, deadlines, required documents, admission requirements, procedures, exceptions.
+- Avoid vague advice-like statements in DOCUMENT_FACTS, such as "you should check..." or "some programmes may...".
+- If the context contains numbers, dates, ECTS, semesters, language levels, or named requirements, include them when relevant.
+- If the user asks about a specific programme and programme facts are available, include the programme name and key programme facts.
 - If something is not stated, put it in MISSING_INFO.
 - If a PLAN step uses general advice rather than the document context, start it with "General guidance:".
 - Keep the answer concise and practical.
