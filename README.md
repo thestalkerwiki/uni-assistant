@@ -273,4 +273,8 @@ The main goals are:
 - clear distinction between facts and assumptions
 - practical guidance for applicants
 - reduction of information chaos
+<<<<<<< HEAD
 - step-by-step development of a useful assistant
+=======
+- step-by-step development of a useful assistant
+>>>>>>> feature/multi-page-ingestion
