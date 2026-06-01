@@ -1069,6 +1069,20 @@ Rules:
 - If a PLAN step uses general advice rather than the document context, start it with "General guidance:".
 - Keep the answer concise and practical.
 - Write the final answer in {response_language}.
+- Prioritize facts by relevance for the average applicant.
+- In DOCUMENT_FACTS, include the most generally relevant facts first.
+- Put country-specific or conditional rules after general programme/admission facts.
+- If a fact applies only to a specific group, clearly mark it as conditional.
+- Do not let conditional exceptions dominate the answer.
+- Prefix each DOCUMENT_FACTS item with one of:
+  [general] for facts relevant to most applicants
+  [conditional] for facts relevant only to specific countries, backgrounds, or situations
+  [contact] for contact details
+- Use [general] facts before [conditional] and [contact] facts.
+- In PLAN, do not include conditional steps as main steps unless they are likely relevant to the user.
+- If a step only applies to a specific country or applicant group, add it as a conditional note, not as a main step.
+- PLAN should contain only broadly relevant next steps.
+- Country-specific rules should go into DOCUMENT_FACTS as [conditional], not into PLAN, unless the user explicitly says they are from that country.
 
 Document context:
 {context}
@@ -1165,21 +1179,60 @@ User request:
 
     answer_parts = []
 
+    MAX_GENERAL_FACTS = 6
+    MAX_CONDITIONAL_FACTS = 2
+    MAX_CONTACT_FACTS = 2
+    MAX_MISSING_INFO = 5
+    MAX_PLAN_LINES = 4
+
     if document_facts:
-        answer_parts.append("What I found:")
+        general_facts = []
+        conditional_facts = []
+        contact_facts = []
+        other_facts = []
+
         for fact in document_facts:
-            answer_parts.append(f"- {fact}")
+            stripped_fact = fact.strip()
+            lowered_fact = stripped_fact.lower()
+
+            if lowered_fact.startswith("[conditional]"):
+                conditional_facts.append(stripped_fact[len("[conditional]"):].strip())
+            elif lowered_fact.startswith("[contact]"):
+                contact_facts.append(stripped_fact[len("[contact]"):].strip())
+            elif lowered_fact.startswith("[general]"):
+                general_facts.append(stripped_fact[len("[general]"):].strip())
+            else:
+                other_facts.append(stripped_fact)
+
+        main_facts = (general_facts + other_facts)[:MAX_GENERAL_FACTS]
+
+        if main_facts:
+            answer_parts.append("What I found:")
+            for fact in main_facts:
+                answer_parts.append(f"- {fact}")
+
+        if conditional_facts:
+            answer_parts.append("")
+            answer_parts.append("Conditional notes:")
+            for fact in conditional_facts[:MAX_CONDITIONAL_FACTS]:
+                answer_parts.append(f"- {fact}")
+
+        if contact_facts:
+            answer_parts.append("")
+            answer_parts.append("Contacts:")
+            for fact in contact_facts[:MAX_CONTACT_FACTS]:
+                answer_parts.append(f"- {fact}")
 
     if missing_info:
         answer_parts.append("")
         answer_parts.append("What is still unclear:")
-        for item in missing_info:
+        for item in missing_info[:MAX_MISSING_INFO]:
             answer_parts.append(f"- {item}")
 
     if plan_lines:
         answer_parts.append("")
         answer_parts.append("What you should do next:")
-        answer_parts.extend(plan_lines)
+        answer_parts.extend(plan_lines[:MAX_PLAN_LINES])
 
     if answer_parts:
         answer = "\n".join(answer_parts)
