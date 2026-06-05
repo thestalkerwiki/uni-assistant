@@ -23,6 +23,12 @@ from fastapi.responses import FileResponse
 
 app = FastAPI(title="Uni Assistant API")
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/demo")
+def demo_page():
+    return FileResponse("static/demo.html")
+
 WEB_VECTORSTORE_CACHE = {}
 
 def is_factual_question(query: str) -> bool:

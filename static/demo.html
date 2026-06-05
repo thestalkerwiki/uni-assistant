@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uni Assistant Demo</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f3ee;
+      color: #2f2a25;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .header {
+      margin-bottom: 32px;
+    }
+
+    .eyebrow {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8a6a4f;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 36px;
+      line-height: 1.1;
+      margin: 0 0 12px;
+      color: #3a2418;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #625850;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: #fffaf4;
+      border: 1px solid #e4d8ca;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(72, 49, 32, 0.06);
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #3a2418;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      padding: 14px;
+      border: 1px solid #d5c6b6;
+      border-radius: 12px;
+      background: #fff;
+      color: #2f2a25;
+      font: inherit;
+      line-height: 1.45;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #9c7658;
+      box-shadow: 0 0 0 3px rgba(156, 118, 88, 0.15);
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .question {
+      min-height: 90px;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 18px;
+      background: #6f4a34;
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    button:hover {
+      background: #5c3d2b;
+    }
+
+    button:disabled {
+      background: #b8a99c;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #7b7169;
+      line-height: 1.5;
+      margin-top: 14px;
+    }
+
+    .answer-card {
+      min-height: 420px;
+    }
+
+    .answer-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .answer-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #3a2418;
+    }
+
+    .mode {
+      font-size: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #efe4d8;
+      color: #6f4a34;
+      white-space: nowrap;
+    }
+
+    .answer {
+      white-space: pre-wrap;
+      line-height: 1.65;
+      font-size: 15px;
+      color: #332c27;
+    }
+
+    .placeholder {
+      color: #8a8178;
+      line-height: 1.6;
+    }
+
+    .sources {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #e4d8ca;
+    }
+
+    .sources-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #3a2418;
+    }
+
+    .source-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .source-item {
+      word-break: break-word;
+      background: #f5eee6;
+      padding: 9px 11px;
+      border-radius: 10px;
+      color: #5c5148;
+    }
+
+    .error {
+      color: #9e2f2f;
+      background: #fff0f0;
+      border: 1px solid #f1c4c4;
+      padding: 12px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <section class="header">
+      <div class="eyebrow">Uni Assistant Prototype</div>
+      <h1>University admission guidance from official sources</h1>
+      <p class="subtitle">
+        Paste official university pages, ask a question, and get a structured answer with facts,
+        missing information, next steps, and sources.
+      </p>
+    </section>
+
+    <section class="layout">
+      <div class="card">
+        <div class="field">
+          <label for="urls">Official source URLs</label>
+          <textarea id="urls" spellcheck="false">https://www.tugraz.at/studium/studienangebot/masterstudien/computational-social-systems
+https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anmeldung-und-zulassung/zulassung-von-internationalen-studienwerberinnen-und-werbern/ueberblick-zulassung-von-internationalen-studienwerberinnen-und-werbern
+https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anmeldung-und-zulassung/zulassungsfristen</textarea>
+        </div>
+
+        <div class="field">
+          <label for="question">Question</label>
+          <textarea id="question" class="question">What should I prepare before applying to this Master's programme?</textarea>
+        </div>
+
+        <button id="askButton">Ask Uni Assistant</button>
+
+        <p class="hint">
+          This demo calls <strong>/web-multi-assistant</strong> and renders the answer in a readable format.
+        </p>
+      </div>
+
+      <div class="card answer-card">
+        <div class="answer-header">
+          <div class="answer-title">Assistant answer</div>
+          <div id="mode" class="mode">waiting</div>
+        </div>
+
+        <div id="answer" class="answer placeholder">
+          The answer will appear here after you submit a question.
+        </div>
+
+        <div id="sources" class="sources" style="display: none;">
+          <div class="sources-title">Sources</div>
+          <div id="sourceList" class="source-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const urlsInput = document.getElementById("urls");
+    const questionInput = document.getElementById("question");
+    const askButton = document.getElementById("askButton");
+    const answerBlock = document.getElementById("answer");
+    const modeBlock = document.getElementById("mode");
+    const sourcesBlock = document.getElementById("sources");
+    const sourceList = document.getElementById("sourceList");
+
+    function getUrls() {
+      return urlsInput.value
+        .split("\n")
+        .map(url => url.trim())
+        .filter(Boolean);
+    }
+
+    function renderSources(sources) {
+      sourceList.innerHTML = "";
+
+      if (!sources || sources.length === 0) {
+        sourcesBlock.style.display = "none";
+        return;
+      }
+
+      sources.forEach(source => {
+        const item = document.createElement("div");
+        item.className = "source-item";
+        item.textContent = source;
+        sourceList.appendChild(item);
+      });
+
+      sourcesBlock.style.display = "block";
+    }
+
+    async function askAssistant() {
+      const urls = getUrls();
+      const question = questionInput.value.trim();
+
+      if (urls.length === 0 || !question) {
+        answerBlock.className = "error";
+        answerBlock.textContent = "Please provide at least one URL and a question.";
+        modeBlock.textContent = "error";
+        renderSources([]);
+        return;
+      }
+
+      askButton.disabled = true;
+      askButton.textContent = "Thinking...";
+      modeBlock.textContent = "loading";
+      answerBlock.className = "answer placeholder";
+      answerBlock.textContent = "Reading sources and preparing an answer...";
+      renderSources([]);
+
+      try {
+        const response = await fetch("/web-multi-assistant", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            urls,
+            question
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        modeBlock.textContent = data.mode || "answer";
+        answerBlock.className = "answer";
+        answerBlock.textContent = data.answer || "No answer returned.";
+        renderSources(data.sources || []);
+      } catch (error) {
+        modeBlock.textContent = "error";
+        answerBlock.className = "error";
+        answerBlock.textContent = error.message || "Something went wrong.";
+        renderSources([]);
+      } finally {
+        askButton.disabled = false;
+        askButton.textContent = "Ask Uni Assistant";
+      }
+    }
+
+    askButton.addEventListener("click", askAssistant);
+  </script>
+</body>
+</html>
