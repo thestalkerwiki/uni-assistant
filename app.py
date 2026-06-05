@@ -585,6 +585,215 @@ def build_context_from_docs(results):
 
     return "\n\n---\n\n".join(parts)
 
+def score_doc_for_source_type(doc, source_type: str) -> int:
+    """
+    Simple keyword scoring to prefer more useful chunks
+    inside the same source_type.
+    """
+    text = doc.page_content.lower()
+
+    keywords_by_source_type = {
+        "program_page": [
+            "studiendauer",
+            "ects-anrechnungspunkte",
+            "abschluss",
+            "master of science",
+            "bachelor of arts",
+            "unterrichtssprache",
+            "language of instruction",
+            "duration",
+            "ects",
+            "degree",
+            "computational social systems",
+        ],
+        "admission_page": [
+            "ansuchen um zulassung",
+            "unterlagen",
+            "required documents",
+            "documents",
+            "zulassung",
+            "aufnahmeverfahren",
+            "legalisation",
+            "legalization",
+            "beglaubigen",
+            "übersetzen",
+            "translation",
+            "vfs global",
+        ],
+        "deadline_page": [
+            "masterstudien",
+            "master studies",
+            "master's programmes",
+            "eu/ewr",
+            "eu ewr",
+            "drittstaat",
+            "drittstaaten",
+            "third-country",
+            "wintersemester",
+            "sommersemester",
+            "winter semester",
+            "summer semester",
+            "15. oktober",
+            "15. august",
+            "15. märz",
+            "15. jänner",
+            "15 october",
+            "15 august",
+            "15 march",
+            "15 january",
+        ],
+        "language_page": [
+            "sprachnachweis",
+            "sprachkenntnisse",
+            "english proficiency",
+            "proof of english",
+            "cefr",
+            "ielts",
+            "toefl",
+        ],
+    }
+
+    keywords = keywords_by_source_type.get(source_type, [])
+    score = 0
+
+    for keyword in keywords:
+        if keyword in text:
+            score += 1
+
+    return score
+
+def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fetch_k: int = 30):
+    """
+    Search broadly, manually filter by source_type,
+    then rank chunks by source-specific keyword score.
+    """
+    results = vectorstore.similarity_search(query, k=fetch_k)
+
+    filtered = []
+    for doc in results:
+        metadata = doc.metadata or {}
+        if metadata.get("source_type") == source_type:
+            filtered.append(doc)
+
+    ranked = sorted(
+        filtered,
+        key=lambda doc: score_doc_for_source_type(doc, source_type),
+        reverse=True
+    )
+
+    selected = ranked[:k]
+
+    print(f"DEBUG source search: {source_type} -> {len(selected)} chunks")
+
+    for i, doc in enumerate(selected):
+        score = score_doc_for_source_type(doc, source_type)
+        print(f"DEBUG source ranked {source_type} #{i + 1}, score={score}")
+        print(doc.page_content[:300])
+        print("---")
+
+    return selected
+
+def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: int = 4):
+    """
+    Source-balanced retrieval for multi-page web assistant.
+
+    Uses source-specific queries and manual filtering by source_type.
+    """
+
+    if intent == "admission":
+        source_type_targets = [
+            ("program_page", 2),
+            ("admission_page", 2),
+            ("deadline_page", 1),
+        ]   
+    elif intent == "deadline":
+        source_type_targets = [
+            ("deadline_page", 4),
+            ("program_page", 1),
+            ("admission_page", 1),
+        ]
+    elif intent == "language":
+        source_type_targets = [
+            ("program_page", 2),
+            ("language_page", 2),
+            ("admission_page", 1),
+        ]
+    elif intent == "study_structure":
+        source_type_targets = [
+            ("program_page", 5),
+            ("admission_page", 1),
+        ]
+    else:
+        source_type_targets = [
+            ("program_page", 2),
+            ("admission_page", 1),
+            ("deadline_page", 1),
+        ]
+
+    source_queries = {
+        "program_page": (
+            "programme facts degree ECTS duration language of instruction "
+            "Studiendauer ECTS-Anrechnungspunkte Abschluss Unterrichtssprache "
+            "Master of Science Computational Social Systems curriculum study programme"
+        ),
+        "admission_page": (
+            "admission requirements application form required documents "
+            "Zulassung Voraussetzungen Ansuchen Unterlagen Aufnahmeverfahren "
+            "legalisation translation country-specific information"
+        ),
+        "deadline_page": (
+            "deadlines application period admission period dates winter semester summer semester "
+            "Zulassungsfristen Fristen Wintersemester Sommersemester "
+            "Masterstudien EU EWR Drittstaaten 1 Mai 15 August 15 Oktober "
+            "1 Dezember 15 Jänner 15 März"
+        ),
+        "language_page": (
+            "language requirements proof of English English proficiency CEFR IELTS TOEFL "
+            "Sprachnachweis Sprachkenntnisse Englisch Deutsch"
+        ),
+    }
+
+    selected = []
+    seen_contents = set()
+
+    for source_type, k in source_type_targets:
+        source_query = source_queries.get(source_type, query)
+
+        fetch_k = 50 if source_type == "deadline_page" else 30
+
+        results = search_by_source_type(
+            vectorstore=vectorstore,
+            query=source_query,
+            source_type=source_type,
+            k=k,
+            fetch_k=fetch_k
+        )
+        for doc in results:
+            content_key = doc.page_content[:300]
+            if content_key not in seen_contents:
+                selected.append(doc)
+                seen_contents.add(content_key)
+
+    # Fallback: fill missing context with general similarity search
+    if len(selected) < default_k:
+        fallback_results = vectorstore.similarity_search(query, k=default_k)
+
+        for doc in fallback_results:
+            content_key = doc.page_content[:300]
+            if content_key not in seen_contents:
+                selected.append(doc)
+                seen_contents.add(content_key)
+
+    print("DEBUG balanced retrieval selected:")
+    for i, doc in enumerate(selected):
+        source_type = (doc.metadata or {}).get("source_type", "unknown")
+        source = (doc.metadata or {}).get("source", "unknown")
+        print(f"DEBUG BALANCED CHUNK {i + 1}: {source_type} | {source}")
+        print(doc.page_content[:400])
+        print("---")
+
+    return selected
+
 def ask_question(query, vectorstore, llm):
     retrieval_query = build_retrieval_query(query)
     intent = detect_query_intent(query)
@@ -689,8 +898,13 @@ def build_evidence_summary(user_request, vectorstore, llm):
     retrieval_query = build_retrieval_query(user_request)
 
     k = 6 if intent in {"deadline", "admission", "study_structure", "language"} else 4
-    results = vectorstore.similarity_search(retrieval_query, k=k)
-
+    results = balanced_similarity_search(
+        vectorstore=vectorstore,
+        query=retrieval_query,
+        intent=intent,
+        default_k=6
+    )
+    
     context = build_context_from_docs(results)
 
     print("DEBUG summary intent:", intent)
@@ -812,7 +1026,12 @@ def build_contextual_plan(user_request, vectorstore, llm):
     retrieval_query = build_retrieval_query(user_request)
 
     k = 6 if intent == "study_structure" else 4
-    results = vectorstore.similarity_search(retrieval_query, k=k)
+    results = balanced_similarity_search(
+        vectorstore=vectorstore,
+        query=user_request,
+        intent=intent,
+        default_k=k
+    )
 
     context = build_context_from_docs(results)
 
@@ -852,6 +1071,20 @@ Rules:
 - If a PLAN step uses general advice rather than the document context, start it with "General guidance:".
 - Keep the answer concise and practical.
 - Write the final answer in {response_language}.
+- Prioritize facts by relevance for the average applicant.
+- In DOCUMENT_FACTS, include the most generally relevant facts first.
+- Put country-specific or conditional rules after general programme/admission facts.
+- If a fact applies only to a specific group, clearly mark it as conditional.
+- Do not let conditional exceptions dominate the answer.
+- Prefix each DOCUMENT_FACTS item with one of:
+  [general] for facts relevant to most applicants
+  [conditional] for facts relevant only to specific countries, backgrounds, or situations
+  [contact] for contact details
+- Use [general] facts before [conditional] and [contact] facts.
+- In PLAN, do not include conditional steps as main steps unless they are likely relevant to the user.
+- If a step only applies to a specific country or applicant group, add it as a conditional note, not as a main step.
+- PLAN should contain only broadly relevant next steps.
+- Country-specific rules should go into DOCUMENT_FACTS as [conditional], not into PLAN, unless the user explicitly says they are from that country.
 
 Document context:
 {context}
@@ -946,8 +1179,65 @@ User request:
         elif section == "plan":
             plan_lines.append(stripped)
 
+    answer_parts = []
+
+    MAX_GENERAL_FACTS = 6
+    MAX_CONDITIONAL_FACTS = 2
+    MAX_CONTACT_FACTS = 2
+    MAX_MISSING_INFO = 5
+    MAX_PLAN_LINES = 4
+
+    if document_facts:
+        general_facts = []
+        conditional_facts = []
+        contact_facts = []
+        other_facts = []
+
+        for fact in document_facts:
+            stripped_fact = fact.strip()
+            lowered_fact = stripped_fact.lower()
+
+            if lowered_fact.startswith("[conditional]"):
+                conditional_facts.append(stripped_fact[len("[conditional]"):].strip())
+            elif lowered_fact.startswith("[contact]"):
+                contact_facts.append(stripped_fact[len("[contact]"):].strip())
+            elif lowered_fact.startswith("[general]"):
+                general_facts.append(stripped_fact[len("[general]"):].strip())
+            else:
+                other_facts.append(stripped_fact)
+
+        main_facts = (general_facts + other_facts)[:MAX_GENERAL_FACTS]
+
+        if main_facts:
+            answer_parts.append("What I found:")
+            for fact in main_facts:
+                answer_parts.append(f"- {fact}")
+
+        if conditional_facts:
+            answer_parts.append("")
+            answer_parts.append("Conditional notes:")
+            for fact in conditional_facts[:MAX_CONDITIONAL_FACTS]:
+                answer_parts.append(f"- {fact}")
+
+        if contact_facts:
+            answer_parts.append("")
+            answer_parts.append("Contacts:")
+            for fact in contact_facts[:MAX_CONTACT_FACTS]:
+                answer_parts.append(f"- {fact}")
+
+    if missing_info:
+        answer_parts.append("")
+        answer_parts.append("What is still unclear:")
+        for item in missing_info[:MAX_MISSING_INFO]:
+            answer_parts.append(f"- {item}")
+
     if plan_lines:
-        answer = "\n".join(plan_lines)
+        answer_parts.append("")
+        answer_parts.append("What you should do next:")
+        answer_parts.extend(plan_lines[:MAX_PLAN_LINES])
+
+    if answer_parts:
+        answer = "\n".join(answer_parts)
 
     return {
         "mode": "contextual_plan",
@@ -1231,3 +1521,5 @@ def web_preview(request: WebPreviewRequest):
         "language": doc.metadata.get("language"),
         "preview": doc.page_content[:1500]
     }
+    
+    
