@@ -95,6 +95,39 @@
       margin-bottom: 18px;
     }
 
+    .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: -6px 0 18px;
+    }
+
+    .preset-button {
+        width: auto;
+        border: 1px solid #d8c8b8;
+        border-radius: 999px;
+        padding: 8px 11px;
+        background: #f5eee6;
+        color: #6f4a34;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.15s ease;
+    }
+
+    .preset-button:hover {
+    background: #eadccf;
+    border-color: #c8b39f;
+    }
+
+    .preset-button.active {
+    background: #6f4a34;
+    color: #fff;
+    border-color: #6f4a34;
+    }
+
+
+
     .question {
       min-height: 90px;
     }
@@ -242,6 +275,28 @@ https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anme
           <textarea id="question" class="question">What should I prepare before applying to this Master's programme?</textarea>
         </div>
 
+        <div class="presets">
+            <button type="button" class="preset-button" data-question="Summarize this programme for an applicant. Include programme facts, admission requirements, deadlines, required documents, language requirements, missing information, and next steps.">
+                Programme overview
+            </button>
+
+            <button type="button" class="preset-button" data-question="What admission requirements are clearly stated for this programme?">
+                Admission requirements
+            </button>
+
+            <button type="button" class="preset-button" data-question="What deadlines or application periods are stated for this programme?">
+                Deadlines
+            </button>
+
+            <button type="button" class="preset-button" data-question="What documents, forms, certificates, or proofs are mentioned for applying?">
+                Documents
+            </button>
+
+            <button type="button" class="preset-button" data-question="What should I prepare before applying to this programme?">
+                Preparation plan
+            </button>
+        </div>
+
         <button id="askButton">Ask Uni Assistant</button>
 
         <p class="hint">
@@ -275,6 +330,16 @@ https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anme
     const modeBlock = document.getElementById("mode");
     const sourcesBlock = document.getElementById("sources");
     const sourceList = document.getElementById("sourceList");
+    const presetButtons = document.querySelectorAll(".preset-button");
+
+    presetButtons.forEach(button => {
+    button.addEventListener("click", () => {
+        questionInput.value = button.dataset.question;
+
+        presetButtons.forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+    });
+    });
 
     function getUrls() {
       return urlsInput.value
