@@ -59,6 +59,14 @@ def detect_answer_mode(query: str) -> str:
 
     if any(phrase in lowered for phrase in [
         # English
+        "what should an applicant know",
+        "summarize this programme",
+        "summarize this program",
+        "summarize this programme for an applicant",
+        "summarize this program for an applicant",
+        "programme overview",
+        "program overview",
+        "applicant overview",
         "what should i",
         "how should i",
         "how do i prepare",
@@ -87,6 +95,13 @@ def detect_answer_mode(query: str) -> str:
         "чтобы поступить",
 
         # German
+        "was sollte ein bewerber wissen",
+        "was sollte eine bewerberin wissen",
+        "fasse dieses studium zusammen",
+        "fasse diesen studiengang zusammen",
+        "überblick über das studium",
+        "studienüberblick",
+        "bewerberüberblick",
         "was soll ich vorbereiten",
         "wie soll ich mich vorbereiten",
         "wie bereite ich mich",
@@ -132,6 +147,25 @@ def detect_answer_mode(query: str) -> str:
 
 def detect_query_intent(query: str) -> str:
     lowered = query.lower().strip()
+    
+    if any(phrase in lowered for phrase in [
+        # English
+        "programme overview",
+        "program overview",
+        "summarize this programme",
+        "summarize this program",
+        "what should an applicant know",
+        "applicant overview",
+
+        # German
+        "studienüberblick",
+        "überblick über das studium",
+        "fasse dieses studium zusammen",
+        "fasse diesen studiengang zusammen",
+        "was sollte ein bewerber wissen",
+        "was sollte eine bewerberin wissen"
+    ]):
+        return "overview"
 
     if any(word in lowered for word in [
     # English
@@ -199,8 +233,18 @@ def detect_query_intent(query: str) -> str:
     
     
     if any(word in lowered for word in [
-    "english level", "language requirement", "language requirements",
-    "proof of english", "b2", "ielts", "toefl"
+        # English
+        "programme overview", "program overview",
+        "summarize this programme", "summarize this program",
+        "what should an applicant know",
+        "applicant overview",
+
+        # German
+        "studienüberblick", "überblick über das studium",
+        "fasse dieses studium zusammen",
+        "fasse diesen studiengang zusammen",
+        "was sollte ein bewerber wissen",
+        "was sollte eine bewerberin wissen"
     ]):
         return "admission"
 
@@ -238,6 +282,17 @@ def detect_response_language(query: str) -> str:
 
 def build_retrieval_query(user_query: str) -> str:
     intent = detect_query_intent(user_query)
+    
+    if intent == "overview":
+        return (
+            f"{user_query} "
+            "programme facts program facts degree ects duration language of instruction "
+            "admission requirements required documents application form deadlines "
+            "language requirements missing information next steps "
+            "studiengang studium studiendauer ects-anrechnungspunkte abschluss "
+            "unterrichtssprache zulassung voraussetzungen erforderliche unterlagen "
+            "ansuchen um zulassung zulassungsfristen bewerbungsfrist"
+        )
 
     if intent == "documents":
         return (
@@ -249,12 +304,20 @@ def build_retrieval_query(user_query: str) -> str:
     if intent == "admission":
         return (
             f"{user_query} "
+            # English
             "admission requirements application eligibility apply "
+            "required documents application form legalisation legalization translation "
+            "programme facts program facts degree ects duration language of instruction "
+            "curriculum master bachelor deadlines application period "
+            "tuition fees study start semester start "
+
+            # German
             "zulassung voraussetzungen aufnahmeverfahren bewerbung "
-            "required documents application form legalisation translation "
-            "programme facts degree ects duration language of instruction "
-            "studiendauer ects-anrechnungspunkte abschluss unterrichtssprache "
-            "curriculum master bachelor"
+            "erforderliche unterlagen benötigte unterlagen dokumente formular "
+            "ansuchen um zulassung beglaubigung übersetzung legalisierung "
+            "studiengang studium studiendauer ects-anrechnungspunkte abschluss "
+            "unterrichtssprache curriculum masterstudium bachelorstudium "
+            "zulassungsfristen bewerbungsfrist einreichfrist wintersemester sommersemester"
         )
 
     if intent == "deadline":
@@ -705,8 +768,15 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
 
     Uses source-specific queries and manual filtering by source_type.
     """
-
-    if intent == "admission":
+    
+    if intent == "overview":
+        source_type_targets = [
+            ("program_page", 2),
+            ("admission_page", 2),
+            ("deadline_page", 1),
+            ("language_page", 1),
+        ]
+    elif intent == "admission":
         source_type_targets = [
             ("program_page", 2),
             ("admission_page", 2),
@@ -738,20 +808,25 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
 
     source_queries = {
         "program_page": (
-            "programme facts degree ECTS duration language of instruction "
+            "programme facts program facts study programme degree ECTS duration language of instruction "
+            "study start semester curriculum tuition fees programme profile "
             "Studiendauer ECTS-Anrechnungspunkte Abschluss Unterrichtssprache "
-            "Master of Science Computational Social Systems curriculum study programme"
+            "Studiengang Studium Masterstudium Bachelorstudium Curriculum Studienbeginn "
+            "Master of Science Bachelor of Arts Computational Social Systems"
         ),
         "admission_page": (
-            "admission requirements application form required documents "
-            "Zulassung Voraussetzungen Ansuchen Unterlagen Aufnahmeverfahren "
-            "legalisation translation country-specific information"
+            "admission requirements application form required documents eligibility procedure "
+            "legalisation legalization translation certificates proof application steps "
+            "Zulassung Voraussetzungen Aufnahmeverfahren Bewerbung Ansuchen um Zulassung "
+            "erforderliche Unterlagen benötigte Unterlagen Dokumente Nachweise "
+            "Beglaubigung Übersetzung Legalisierung länderspezifische Informationen"
         ),
         "deadline_page": (
             "deadlines application period admission period dates winter semester summer semester "
-            "Zulassungsfristen Fristen Wintersemester Sommersemester "
-            "Masterstudien EU EWR Drittstaaten 1 Mai 15 August 15 Oktober "
-            "1 Dezember 15 Jänner 15 März"
+            "Bachelor studies Master studies Master's programmes EU EEA third-country "
+            "Zulassungsfristen Bewerbungsfrist Einreichfrist Fristen Wintersemester Sommersemester "
+            "Bachelorstudien Masterstudien EU EWR Drittstaaten "
+            "1 Mai 15 August 15 Oktober 1 Dezember 15 Jänner 15 März"
         ),
         "language_page": (
             "language requirements proof of English English proficiency CEFR IELTS TOEFL "
@@ -1023,6 +1098,90 @@ MISSING_INFO:
         "document_facts": document_facts,
         "missing_info": missing_info,
         "answer": answer,
+        "sources": sources
+    }
+    
+def build_programme_overview(user_request, vectorstore, llm):
+    response_language = detect_response_language(user_request)
+
+    results = balanced_similarity_search(
+        vectorstore=vectorstore,
+        query=user_request,
+        intent="overview",
+        default_k=4
+    )
+
+    context = build_context_from_docs(results)
+    sources = extract_sources(results)
+
+    prompt = f"""
+    You are an expert university admission assistant.
+
+    Use ONLY the document context below.
+    Create a concise applicant-facing overview.
+    Do not invent missing facts.
+
+    Write the answer in {response_language}.
+
+    Use this exact structure:
+
+    Programme
+    - Name:
+    - Degree:
+    - Duration:
+    - ECTS:
+    - Language:
+
+    Admission
+    - Clearly stated admission facts:
+    - Required form or procedure:
+
+    Documents
+    - Required or mentioned documents:
+    - Translation/legalisation rules:
+
+    Deadlines
+    - Clearly stated deadlines or application periods:
+
+    Missing information
+    - Important information not stated in the provided context:
+
+    Next steps
+    1. ...
+    2. ...
+    3. ...
+
+    Rules:
+    - If a field is not stated, write "Not stated in the provided context."
+    - Prefer concrete values over vague summaries.
+    - Keep country-specific rules short and mark them as conditional.
+    - Keep the answer practical and easy to scan.
+
+    Document context:
+    {context}
+
+    User request:
+    {user_request}
+    """
+
+    response = llm.invoke(prompt)
+    text = response.content.strip()
+
+    print("DEBUG OVERVIEW RAW RESPONSE:")
+    print(repr(response.content))
+    print("DEBUG OVERVIEW STRIPPED TEXT:")
+    print(repr(text))
+
+    if not text:
+        text = (
+            "I could not generate a programme overview from the provided sources. "
+            "Try asking specifically about programme facts, admission requirements, documents, or deadlines."
+        )
+
+    return {
+        "mode": "programme_overview",
+        "question": user_request,
+        "answer": text,
         "sources": sources
     }
     
@@ -1490,6 +1649,10 @@ def web_multi_assistant(request: WebMultiQuestionRequest):
         return build_evidence_summary(query, web_vectorstore, llm)
 
     if answer_mode == "guidance_plan":
+        if intent == "overview":
+            print("DEBUG web multi route: programme_overview")
+            return build_programme_overview(query, web_vectorstore, llm)
+
         print("DEBUG web multi route: contextual_plan")
         return build_contextual_plan(query, web_vectorstore, llm)
 
