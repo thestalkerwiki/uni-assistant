@@ -18,6 +18,8 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="Uni Assistant API")
 
