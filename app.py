@@ -452,6 +452,33 @@ def classify_source_type(url: str, text: str) -> str:
     ]):
         return "admission_page"
     
+    if any(marker in lowered_url for marker in [
+        "english-language",
+        "language-requirements",
+        "english-language-requirements"
+    ]):
+        return "language_page"
+
+    if any(marker in lowered_url for marker in [
+        "entry-requirements",
+        "requirements"
+    ]):
+        return "admission_page"
+
+    if any(marker in lowered_url for marker in [
+        "fees-and-funding",
+        "fees",
+        "funding"
+    ]):
+        return "fees_page"
+
+    if any(marker in lowered_url for marker in [
+        "student-visa",
+        "visa-guide",
+        "visa"
+    ]):
+        return "visa_page"
+    
     if any(marker in combined for marker in [
         "programme", "program", "degree", "ects", "curriculum",
         "duration", "study programme", "bachelor", "master",
@@ -775,6 +802,8 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
             ("admission_page", 2),
             ("deadline_page", 1),
             ("language_page", 1),
+            ("fees_page", 1),
+            ("visa_page", 1),
         ]
     elif intent == "admission":
         source_type_targets = [
