@@ -456,37 +456,15 @@ def classify_source_type(url: str, text: str) -> str:
     lowered_text = text.lower()
 
     combined = lowered_url + " " + lowered_text[:3000]
-    
-    if any(marker in lowered_url for marker in [
-        "zulassungsfristen",
-        "deadlines",
-        "dates-and-deadlines",
-        "termine-fristen"
-    ]):
-        return "deadline_page"
 
-    if any(marker in lowered_url for marker in [
-        "zulassung-von-internationalen",
-        "admission-bachelor",
-        "applying",
-        "admission",
-        "bewerbung",
-        "zulassung"
-    ]):
-        return "admission_page"
-    
+    # Most specific URL-based classifications first
+
     if any(marker in lowered_url for marker in [
         "english-language",
         "language-requirements",
         "english-language-requirements"
     ]):
         return "language_page"
-
-    if any(marker in lowered_url for marker in [
-        "entry-requirements",
-        "requirements"
-    ]):
-        return "admission_page"
 
     if any(marker in lowered_url for marker in [
         "fees-and-funding",
@@ -501,13 +479,32 @@ def classify_source_type(url: str, text: str) -> str:
         "visa"
     ]):
         return "visa_page"
-    
-    if any(marker in combined for marker in [
-        "programme", "program", "degree", "ects", "curriculum",
-        "duration", "study programme", "bachelor", "master",
-        "studiengang", "studium", "curriculum", "regelstudienzeit"
+
+    if any(marker in lowered_url for marker in [
+        "entry-requirements",
+        "requirements"
     ]):
-        return "program_page"
+        return "admission_page"
+
+    if any(marker in lowered_url for marker in [
+        "zulassungsfristen",
+        "deadlines",
+        "dates-and-deadlines",
+        "termine-fristen"
+    ]):
+        return "deadline_page"
+
+    # General admission classification after specific cases
+
+    if any(marker in lowered_url for marker in [
+        "zulassung-von-internationalen",
+        "admission-bachelor",
+        "applying",
+        "admission",
+        "bewerbung",
+        "zulassung"
+    ]):
+        return "admission_page"
 
     if any(marker in combined for marker in [
         "language requirements", "language proof", "proof of language",
@@ -516,6 +513,13 @@ def classify_source_type(url: str, text: str) -> str:
         "sprachnachweis", "sprachkenntnisse", "unterrichtssprache"
     ]):
         return "language_page"
+
+    if any(marker in combined for marker in [
+        "programme", "program", "degree", "ects", "curriculum",
+        "duration", "study programme", "bachelor", "master",
+        "studiengang", "studium", "curriculum", "regelstudienzeit"
+    ]):
+        return "program_page"
 
     return "unknown"
 
@@ -769,6 +773,31 @@ def score_doc_for_source_type(doc, source_type: str) -> int:
             "cefr",
             "ielts",
             "toefl",
+        ],
+        "fees_page": [
+        "tuition fees",
+        "course fees",
+        "fees and funding",
+        "funding options",
+        "scholarships",
+        "payment",
+        "deposit",
+        "holding fee",
+        "international students",
+        "berlin merit scholarship",
+        "regional pricing",
+        ],
+        "visa_page": [
+            "student visa",
+            "visa confirmation",
+            "acceptance letter",
+            "embassy",
+            "consulate",
+            "home country",
+            "2-3 months",
+            "prepare your documents",
+            "residence permit",
+            "start studying in germany",
         ],
     }
 
