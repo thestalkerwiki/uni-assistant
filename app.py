@@ -861,6 +861,14 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
             "language requirements proof of English English proficiency CEFR IELTS TOEFL "
             "Sprachnachweis Sprachkenntnisse Englisch Deutsch"
         ),
+        "fees_page": (
+        "tuition fees course fees funding scholarships payment deposit holding fee "
+        "fees and funding international students Berlin undergraduate postgraduate"
+        ),
+        "visa_page": (
+        "student visa visa guide acceptance letter embassy consulate Germany "
+        "international student visa residence permit application documents"
+        ),
     }
 
     selected = []
