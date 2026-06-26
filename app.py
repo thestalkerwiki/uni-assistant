@@ -506,20 +506,36 @@ def classify_source_type(url: str, text: str) -> str:
     ]):
         return "admission_page"
 
-    if any(marker in combined for marker in [
-        "language requirements", "language proof", "proof of language",
-        "language certificate", "english b2", "german c1",
-        "cefr", "ielts", "toefl",
-        "sprachnachweis", "sprachkenntnisse", "unterrichtssprache"
+    # Programme pages before text-based language classification.
+    # Many programme pages contain "Unterrichtssprache" or "English",
+    # but that does not make the whole page a language requirements page.
+    if any(marker in lowered_url for marker in [
+        "studiengang",
+        "studienangebot",
+        "masterstudien",
+        "bachelorstudien",
+        "our-courses",
+        "courses",
+        "programme",
+        "program"
     ]):
-        return "language_page"
+        return "program_page"
 
     if any(marker in combined for marker in [
         "programme", "program", "degree", "ects", "curriculum",
         "duration", "study programme", "bachelor", "master",
-        "studiengang", "studium", "curriculum", "regelstudienzeit"
+        "studiengang", "studium", "curriculum", "regelstudienzeit",
+        "studiendauer", "ects-anrechnungspunkte", "abschluss"
     ]):
         return "program_page"
+
+    if any(marker in combined for marker in [
+        "language requirements", "language proof", "proof of language",
+        "language certificate", "english b2", "german c1",
+        "cefr", "ielts", "toefl",
+        "sprachnachweis", "sprachkenntnisse"
+    ]):
+        return "language_page"
 
     return "unknown"
 
@@ -837,6 +853,112 @@ def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fet
         score = score_doc_for_source_type(doc, source_type)
         print(f"DEBUG source ranked {source_type} #{i + 1}, score={score}")
         print(doc.page_content[:300])
+        print("---")
+
+    return selected
+
+def retrieve_programme_overview_context(vectorstore, user_request: str):
+    """
+    Slot-based retrieval for programme overview.
+
+    Instead of relying on page-level source types, this searches for
+    concrete applicant information needs: programme facts, entry requirements,
+    English requirements, documents, fees, deadlines, and visa information.
+    """
+
+    slot_queries = {
+        "programme_facts": (
+            f"{user_request} "
+        "programme name program name degree award qualification duration semesters "
+        "ECTS credits credit points language of instruction teaching language "
+        "study mode campus location course overview "
+        "Studiendauer ECTS-Anrechnungspunkte Abschluss Unterrichtssprache "
+        "Master of Science MSc Bachelor of Science BSc "
+        "Studiengang Dauer Regelstudienzeit Leistungspunkte Studienform"
+        ),
+        "entry_requirements": (
+            f"{user_request} "
+            "entry requirements admission requirements eligibility academic requirements "
+            "previous degree school leaving certificate prerequisites selection criteria "
+            "Zugangsvoraussetzungen Zulassungsvoraussetzungen Voraussetzungen Bewerbung"
+        ),
+        "english_requirements": (
+            f"{user_request} "
+            "English language requirements English proficiency IELTS TOEFL language certificate "
+            "proof of English CEFR teaching language Sprachkenntnisse Sprachnachweis Englisch"
+        ),
+        "documents": (
+            f"{user_request} "
+            "required documents application documents supporting documents transcripts "
+            "certificates CV motivation letter personal statement passport proof "
+            "Unterlagen Dokumente Nachweise Zeugnisse Lebenslauf Motivationsschreiben"
+        ),
+        "fees": (
+            f"{user_request} "
+            "tuition fees semester contribution course fees funding scholarships payment "
+            "Studiengebühren Semesterbeitrag Gebühren Kosten Finanzierung Stipendium"
+        ),
+        "deadlines": (
+            f"{user_request} "
+            "application deadline application period admission deadline dates intake "
+            "winter semester summer semester Bewerbungsfrist Frist Bewerbungszeitraum "
+            "Zulassungsfrist Wintersemester Sommersemester"
+        ),
+        "visa": (
+            f"{user_request} "
+            "student visa visa residence permit international students embassy consulate "
+            "Visum Aufenthaltstitel internationale Studierende"
+        ),
+    }
+
+    selected = []
+    seen_contents = set()
+
+    for slot_name, slot_query in slot_queries.items():
+        results = vectorstore.similarity_search(slot_query, k=8)
+
+        best_doc = None
+        best_score = -1
+
+        for doc in results:
+            text = doc.page_content.lower()
+
+            # Basic keyword score per slot.
+            score = 0
+            for keyword in slot_query.lower().split():
+                if len(keyword) > 4 and keyword in text:
+                    score += 1
+
+            if score > best_score:
+                best_doc = doc
+                best_score = score
+
+        if best_doc:
+            content_key = best_doc.page_content[:300]
+
+            if content_key not in seen_contents:
+                best_doc.metadata = best_doc.metadata or {}
+                best_doc.metadata["overview_slot"] = slot_name
+
+                selected.append(best_doc)
+                seen_contents.add(content_key)
+
+                source = best_doc.metadata.get("source", "unknown")
+                source_type = best_doc.metadata.get("source_type", "unknown")
+
+                print(f"DEBUG overview slot: {slot_name} -> score={best_score}")
+                print(f"DEBUG overview slot source: {source_type} | {source}")
+                print(best_doc.page_content[:300])
+                print("---")
+
+    print("DEBUG slot overview selected:")
+    for i, doc in enumerate(selected):
+        slot = (doc.metadata or {}).get("overview_slot", "unknown")
+        source_type = (doc.metadata or {}).get("source_type", "unknown")
+        source = (doc.metadata or {}).get("source", "unknown")
+
+        print(f"DEBUG SLOT CHUNK {i + 1}: {slot} | {source_type} | {source}")
+        print(doc.page_content[:400])
         print("---")
 
     return selected
@@ -1193,13 +1315,20 @@ MISSING_INFO:
 def build_programme_overview(user_request, vectorstore, llm):
     response_language = detect_response_language(user_request)
 
-    results = balanced_similarity_search(
+    results = retrieve_programme_overview_context(
         vectorstore=vectorstore,
-        query=user_request,
-        intent="overview",
-        default_k=4
+        user_request=user_request
     )
 
+    if len(results) < 4:
+        print("DEBUG overview fallback: slot retrieval returned too little context")
+        results = balanced_similarity_search(
+            vectorstore=vectorstore,
+            query=user_request,
+            intent="overview",
+            default_k=4
+        )
+    
     context = build_context_from_docs(results)
     sources = extract_sources(results)
 
@@ -1262,10 +1391,68 @@ def build_programme_overview(user_request, vectorstore, llm):
     print(repr(text))
 
     if not text:
-        text = (
-            "I could not generate a programme overview from the provided sources. "
-            "Try asking specifically about programme facts, admission requirements, documents, or deadlines."
+        print("DEBUG overview fallback: empty LLM response, retrying with balanced retrieval")
+
+        fallback_results = balanced_similarity_search(
+            vectorstore=vectorstore,
+            query=user_request,
+            intent="overview",
+            default_k=4
         )
+
+        fallback_context = build_context_from_docs(fallback_results)
+        sources = extract_sources(fallback_results)
+
+        fallback_prompt = f"""
+    You are an expert university admission assistant.
+
+    Use ONLY the document context below.
+    Create a concise applicant-facing overview.
+    Do not invent missing facts.
+
+    Write the answer in {response_language}.
+
+    Use this structure:
+
+    Programme
+    - Name:
+    - Degree:
+    - Duration:
+    - ECTS:
+    - Language:
+
+    Admission
+    - Clearly stated admission facts:
+
+    Documents
+    - Required or mentioned documents:
+
+    Deadlines
+    - Clearly stated deadlines or application periods:
+
+    Missing information
+    - Important information not stated in the provided context:
+
+    Next steps
+    1. ...
+    2. ...
+    3. ...
+
+    Document context:
+    {fallback_context}
+
+    User request:
+    {user_request}
+    """
+
+        fallback_response = llm.invoke(fallback_prompt)
+        text = fallback_response.content.strip()
+
+        if not text:
+            text = (
+                "I could not generate a programme overview from the provided sources. "
+                "Try asking specifically about programme facts, admission requirements, documents, or deadlines."
+            )
 
     return {
         "mode": "programme_overview",
