@@ -490,9 +490,21 @@ def classify_source_type(url: str, text: str) -> str:
         "zulassungsfristen",
         "deadlines",
         "dates-and-deadlines",
-        "termine-fristen"
+        "termine-fristen",
+        "semestertermine",
+        "semester-dates",
+        "term-dates",
     ]):
         return "deadline_page"
+    
+    if any(marker in lowered_url for marker in [
+        "praktikum",
+        "vorpraktikum",
+        "pre-internship",
+        "internship",
+        "praktikumsamt",
+    ]):
+        return "admission_page"
 
     # General admission classification after specific cases
 
@@ -503,6 +515,34 @@ def classify_source_type(url: str, text: str) -> str:
         "admission",
         "bewerbung",
         "zulassung"
+    ]):
+        return "admission_page"
+    
+    # Content-based deadline classification.
+    # Keep this strict because many university pages mention "Semester Dates"
+    # in navigation menus.
+    if any(marker in combined for marker in [
+        "application and enrollment deadline",
+        "re-enrollment deadline",
+        "lecture periods from summer semester",
+        "deadlines summer semester",
+        "deadlines winter semester",
+        "downloads lecture periods",
+        "semestertermine",
+        "bewerbungsfrist",
+    ]):
+        return "deadline_page"
+
+    # Content-based internship classification.
+    # Keep this strict because programme pages may briefly mention
+    # pre-program internships as one requirement.
+    if any(marker in combined for marker in [
+        "internship certificate must contain",
+        "template for the internship certificate",
+        "mandatory pre-internship duration",
+        "submission of the pre-internship certificate",
+        "praktikumsbescheinigung",
+        "praktikumsamt",
     ]):
         return "admission_page"
 
@@ -609,6 +649,30 @@ def build_web_vectorstore(url: str, embeddings):
     WEB_VECTORSTORE_CACHE[normalized_url] = vectorstore
     return vectorstore
 
+def normalize_urls(urls: list[str]) -> list[str]:
+    cleaned_urls = []
+
+    for item in urls:
+        if not item:
+            continue
+
+        # Allow users to paste multiple URLs separated by spaces or new lines.
+        candidates = re.split(r"\s+", item.strip())
+
+        for candidate in candidates:
+            normalized_url = candidate.strip()
+
+            if not normalized_url:
+                continue
+
+            if not normalized_url.startswith(("http://", "https://")):
+                continue
+
+            if normalized_url not in cleaned_urls:
+                cleaned_urls.append(normalized_url)
+
+    return cleaned_urls
+
 def build_web_vectorstore_from_urls(urls: list[str], embeddings):
     normalized_urls = normalize_urls(urls)
 
@@ -658,19 +722,6 @@ def build_web_vectorstore_from_urls(urls: list[str], embeddings):
     WEB_VECTORSTORE_CACHE[cache_key] = vectorstore
     return vectorstore
 
-def normalize_urls(urls: list[str]) -> list[str]:
-    cleaned_urls = []
-
-    for url in urls:
-        normalized_url = url.strip()
-
-        if not normalized_url:
-            continue
-
-        if normalized_url not in cleaned_urls:
-            cleaned_urls.append(normalized_url)
-
-    return cleaned_urls
 
 def extract_sources(results):
     sources = []
@@ -857,99 +908,281 @@ def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fet
 
     return selected
 
+def score_doc_for_overview_slot(doc, slot_name: str, slot_keywords: list[str], preferred_source_types: list[str]) -> int:
+    """
+    Score a retrieved chunk for a specific applicant information slot.
+    """
+    text = doc.page_content.lower()
+    metadata = doc.metadata or {}
+    source_type = metadata.get("source_type", "")
+
+    score = 0
+
+    for keyword in slot_keywords:
+        if keyword.lower() in text:
+            score += 2
+
+    # Prefer chunks from suitable page types.
+    if source_type in preferred_source_types:
+        score += 5
+
+    # Penalize likely navigation/menu chunks.
+    navigation_markers = [
+        "submenu:",
+        "before your studies",
+        "during your studies",
+        "after graduation",
+        "online services",
+        "student lifecycle",
+        "corporate visitors",
+        "press academics",
+    ]
+
+    for marker in navigation_markers:
+        if marker in text:
+            score -= 3
+
+    return score
+
+
 def retrieve_programme_overview_context(vectorstore, user_request: str):
     """
     Slot-based retrieval for programme overview.
 
-    Instead of relying on page-level source types, this searches for
-    concrete applicant information needs: programme facts, entry requirements,
-    English requirements, documents, fees, deadlines, and visa information.
+    Searches for concrete applicant information needs and selects
+    the best matching chunk for each slot.
     """
 
-    slot_queries = {
-        "programme_facts": (
-            f"{user_request} "
-        "programme name program name degree award qualification duration semesters "
-        "ECTS credits credit points language of instruction teaching language "
-        "study mode campus location course overview "
-        "Studiendauer ECTS-Anrechnungspunkte Abschluss Unterrichtssprache "
-        "Master of Science MSc Bachelor of Science BSc "
-        "Studiengang Dauer Regelstudienzeit Leistungspunkte Studienform"
-        ),
-        "entry_requirements": (
-            f"{user_request} "
-            "entry requirements admission requirements eligibility academic requirements "
-            "previous degree school leaving certificate prerequisites selection criteria "
-            "Zugangsvoraussetzungen Zulassungsvoraussetzungen Voraussetzungen Bewerbung"
-        ),
-        "english_requirements": (
-            f"{user_request} "
-            "English language requirements English proficiency IELTS TOEFL language certificate "
-            "proof of English CEFR teaching language Sprachkenntnisse Sprachnachweis Englisch"
-        ),
-        "documents": (
-            f"{user_request} "
-            "required documents application documents supporting documents transcripts "
-            "certificates CV motivation letter personal statement passport proof "
-            "Unterlagen Dokumente Nachweise Zeugnisse Lebenslauf Motivationsschreiben"
-        ),
-        "fees": (
-            f"{user_request} "
-            "tuition fees semester contribution course fees funding scholarships payment "
-            "Studiengebühren Semesterbeitrag Gebühren Kosten Finanzierung Stipendium"
-        ),
-        "deadlines": (
-            f"{user_request} "
-            "application deadline application period admission deadline dates intake "
-            "winter semester summer semester Bewerbungsfrist Frist Bewerbungszeitraum "
-            "Zulassungsfrist Wintersemester Sommersemester"
-        ),
-        "visa": (
-            f"{user_request} "
-            "student visa visa residence permit international students embassy consulate "
-            "Visum Aufenthaltstitel internationale Studierende"
-        ),
+    slots = {
+        "programme_facts": {
+            "query": (
+                f"{user_request} "
+                "programme name program name course name degree award qualification "
+                "Bachelor of Science Master of Science duration semesters ECTS credits "
+                "language of instruction teaching language start of studies "
+                "Key Info Basic Information Standard Period of Studies "
+                "Studiendauer ECTS-Anrechnungspunkte Abschluss Unterrichtssprache "
+                "Regelstudienzeit Leistungspunkte Studienbeginn"
+            ),
+            "keywords": [
+                "degree",
+                "bachelor of science",
+                "master of science",
+                "standard period of studies",
+                "ects credits",
+                "language",
+                "start of studies",
+                "key info",
+                "basic information",
+                "studiendauer",
+                "ects-anrechnungspunkte",
+                "abschluss",
+                "unterrichtssprache",
+                "regelstudienzeit",
+                "leistungspunkte",
+                "studienbeginn",
+            ],
+            "preferred_source_types": ["program_page"],
+            "min_score": 4,
+        },
+        "entry_requirements": {
+            "query": (
+                f"{user_request} "
+                "admission requirements entry requirements eligibility prerequisites "
+                "Abitur equivalent higher education entrance qualification HZB "
+                "self assessment enrollment application admission Voraussetzungen "
+                "Zulassungsvoraussetzungen Zugangsvoraussetzungen"
+            ),
+            "keywords": [
+                "admission requirements",
+                "entry requirements",
+                "abitur",
+                "higher education entrance qualification",
+                "hzb",
+                "self assessment",
+                "enroll",
+                "enrollment",
+                "voraussetzungen",
+                "zulassungsvoraussetzungen",
+                "zugangsvoraussetzungen",
+            ],
+            "preferred_source_types": ["program_page", "admission_page"],
+            "min_score": 4,
+        },
+        "english_requirements": {
+            "query": (
+                f"{user_request} "
+                "language requirements language proficiency German English IELTS TOEFL CEFR "
+                "language certificate proof of language Sprachkenntnisse Sprachnachweis "
+                "Deutschkenntnisse Englischkenntnisse"
+            ),
+            "keywords": [
+                "language requirements",
+                "language proficiency",
+                "ielts",
+                "toefl",
+                "cefr",
+                "language certificate",
+                "proof of language",
+                "sprachkenntnisse",
+                "sprachnachweis",
+                "deutschkenntnisse",
+                "englischkenntnisse",
+            ],
+            "preferred_source_types": ["language_page", "admission_page", "program_page"],
+            "min_score": 4,
+        },
+        "documents": {
+            "query": (
+                f"{user_request} "
+                "required documents application documents supporting documents proof certificate "
+                "transcript self assessment certificate pre-internship certificate "
+                "Unterlagen Dokumente Nachweise Zeugnisse Bescheinigung"
+            ),
+            "keywords": [
+                "required documents",
+                "supporting documents",
+                "certificate",
+                "proof",
+                "transcript",
+                "self assessment",
+                "pre-internship certificate",
+                "unterlagen",
+                "dokumente",
+                "nachweise",
+                "zeugnisse",
+                "bescheinigung",
+                "internship certificate must contain",
+                "template for the internship certificate",
+                "list of your activities",
+                "internship duration",
+            ],
+            "preferred_source_types": ["admission_page"],
+            "min_score": 4,
+        },
+        "fees": {
+            "query": (
+                f"{user_request} "
+                "tuition fees semester contribution study costs financing scholarships "
+                "Studiengebühren Semesterbeitrag Kosten Finanzierung Stipendium"
+            ),
+            "keywords": [
+                "tuition fees",
+                "semester contribution",
+                "study costs",
+                "financing",
+                "scholarships",
+                "studiengebühren",
+                "semesterbeitrag",
+                "kosten",
+                "finanzierung",
+                "stipendium",
+            ],
+            "preferred_source_types": ["fees_page"],
+            "min_score": 6,
+        },
+        "deadlines": {
+            "query": (
+                f"{user_request} "
+                "application deadline application period dates deadlines semester dates "
+                "winter semester summer semester start of studies "
+                "Bewerbungsfrist Bewerbungszeitraum Fristen Semestertermine Wintersemester Sommersemester"
+            ),
+            "keywords": [
+                "application deadline",
+                "application period",
+                "deadline",
+                "deadlines",
+                "semester dates",
+                "winter semester",
+                "summer semester",
+                "start of studies",
+                "bewerbungsfrist",
+                "bewerbungszeitraum",
+                "fristen",
+                "semestertermine",
+                "wintersemester",
+                "sommersemester",
+            ],
+            "preferred_source_types": ["deadline_page", "admission_page", "program_page"],
+            "min_score": 4,
+        },
+        "visa": {
+            "query": (
+                f"{user_request} "
+                "student visa residence permit international students embassy consulate "
+                "Visum Aufenthaltstitel internationale Studierende"
+            ),
+            "keywords": [
+                "student visa",
+                "residence permit",
+                "international students",
+                "embassy",
+                "consulate",
+                "visum",
+                "aufenthaltstitel",
+                "internationale studierende",
+            ],
+            "preferred_source_types": ["visa_page", "admission_page"],
+            "min_score": 5,
+        },
     }
 
     selected = []
     seen_contents = set()
 
-    for slot_name, slot_query in slot_queries.items():
-        results = vectorstore.similarity_search(slot_query, k=8)
+    for slot_name, slot_config in slots.items():
+        results = vectorstore.similarity_search(slot_config["query"], k=12)
 
-        best_doc = None
-        best_score = -1
+        scored_docs = []
 
         for doc in results:
-            text = doc.page_content.lower()
+            score = score_doc_for_overview_slot(
+                doc=doc,
+                slot_name=slot_name,
+                slot_keywords=slot_config["keywords"],
+                preferred_source_types=slot_config["preferred_source_types"],
+            )
 
-            # Basic keyword score per slot.
-            score = 0
-            for keyword in slot_query.lower().split():
-                if len(keyword) > 4 and keyword in text:
-                    score += 1
+            scored_docs.append((score, doc))
 
-            if score > best_score:
-                best_doc = doc
-                best_score = score
+        scored_docs.sort(key=lambda item: item[0], reverse=True)
 
-        if best_doc:
-            content_key = best_doc.page_content[:300]
+        if not scored_docs:
+            continue
 
-            if content_key not in seen_contents:
-                best_doc.metadata = best_doc.metadata or {}
-                best_doc.metadata["overview_slot"] = slot_name
+        best_score, best_doc = scored_docs[0]
 
-                selected.append(best_doc)
-                seen_contents.add(content_key)
+        print(f"DEBUG overview slot candidates: {slot_name}")
+        for score, doc in scored_docs[:3]:
+            source_type = (doc.metadata or {}).get("source_type", "unknown")
+            source = (doc.metadata or {}).get("source", "unknown")
+            print(f"DEBUG candidate {slot_name}: score={score} | {source_type} | {source}")
+            print(doc.page_content[:250])
+            print("---")
 
-                source = best_doc.metadata.get("source", "unknown")
-                source_type = best_doc.metadata.get("source_type", "unknown")
+        if best_score < slot_config["min_score"]:
+            print(f"DEBUG overview slot skipped: {slot_name}, best_score={best_score}")
+            continue
 
-                print(f"DEBUG overview slot: {slot_name} -> score={best_score}")
-                print(f"DEBUG overview slot source: {source_type} | {source}")
-                print(best_doc.page_content[:300])
-                print("---")
+        content_key = best_doc.page_content[:300]
+
+        if content_key in seen_contents:
+            continue
+
+        best_doc.metadata = best_doc.metadata or {}
+        best_doc.metadata["overview_slot"] = slot_name
+
+        selected.append(best_doc)
+        seen_contents.add(content_key)
+
+        source = best_doc.metadata.get("source", "unknown")
+        source_type = best_doc.metadata.get("source_type", "unknown")
+
+        print(f"DEBUG overview slot selected: {slot_name} -> score={best_score}")
+        print(f"DEBUG overview slot source: {source_type} | {source}")
+        print(best_doc.page_content[:300])
+        print("---")
 
     print("DEBUG slot overview selected:")
     for i, doc in enumerate(selected):
