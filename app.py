@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 os.environ["USER_AGENT"] = os.getenv(
-    "USER_AGENT",
-    "UniAssistantPrototype/1.0 (educational project)"
+    "USER_AGENT", "UniAssistantPrototype/1.0 (educational project)"
 )
 
 from fastapi import FastAPI
@@ -25,11 +24,14 @@ app = FastAPI(title="Uni Assistant API")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get("/demo")
 def demo_page():
     return FileResponse("static/demo.html")
 
+
 WEB_VECTORSTORE_CACHE = {}
+
 
 def is_factual_question(query: str) -> bool:
     lowered = query.lower().strip()
@@ -49,215 +51,301 @@ def is_factual_question(query: str) -> bool:
         "is",
         "are",
         "can",
-        "who"
+        "who",
     ]
 
     return any(lowered.startswith(start) for start in factual_starts)
 
+
 def detect_answer_mode(query: str) -> str:
     lowered = query.lower().strip()
 
-    if any(phrase in lowered for phrase in [
-        # English
-        "what should an applicant know",
-        "summarize this programme",
-        "summarize this program",
-        "summarize this programme for an applicant",
-        "summarize this program for an applicant",
-        "programme overview",
-        "program overview",
-        "applicant overview",
-        "what should i",
-        "how should i",
-        "how do i prepare",
-        "how should i prepare",
-        "what should i prepare",
-        "what should i focus on",
-        "how should i plan",
-        "what do i need to do",
-        "what steps should i take",
-        "how do i apply",
-
-        # Russian
-        "что мне подготовить",
-        "как мне подготовиться",
-        "как подготовиться",
-        "что нужно подготовить",
-        "на чем сфокусироваться",
-        "как спланировать",
-        "что мне делать",
-        "какие шаги",
-        "что я должен подготовить",
-        "что мне нужно подготовить",
-        "что надо подготовить",
-        "что подготовить",
-        "как поступить",
-        "чтобы поступить",
-
-        # German
-        "was sollte ein bewerber wissen",
-        "was sollte eine bewerberin wissen",
-        "fasse dieses studium zusammen",
-        "fasse diesen studiengang zusammen",
-        "überblick über das studium",
-        "studienüberblick",
-        "bewerberüberblick",
-        "was soll ich vorbereiten",
-        "wie soll ich mich vorbereiten",
-        "wie bereite ich mich",
-        "worauf soll ich achten",
-        "was muss ich vorbereiten",
-        "welche schritte"
-    ]):
+    if any(
+        phrase in lowered
+        for phrase in [
+            # English
+            "what should an applicant know",
+            "summarize this programme",
+            "summarize this program",
+            "summarize this programme for an applicant",
+            "summarize this program for an applicant",
+            "programme overview",
+            "program overview",
+            "applicant overview",
+            "what should i",
+            "how should i",
+            "how do i prepare",
+            "how should i prepare",
+            "what should i prepare",
+            "what should i focus on",
+            "how should i plan",
+            "what do i need to do",
+            "what steps should i take",
+            "how do i apply",
+            # Russian
+            "что мне подготовить",
+            "как мне подготовиться",
+            "как подготовиться",
+            "что нужно подготовить",
+            "на чем сфокусироваться",
+            "как спланировать",
+            "что мне делать",
+            "какие шаги",
+            "что я должен подготовить",
+            "что мне нужно подготовить",
+            "что надо подготовить",
+            "что подготовить",
+            "как поступить",
+            "чтобы поступить",
+            # German
+            "was sollte ein bewerber wissen",
+            "was sollte eine bewerberin wissen",
+            "fasse dieses studium zusammen",
+            "fasse diesen studiengang zusammen",
+            "überblick über das studium",
+            "studienüberblick",
+            "bewerberüberblick",
+            "was soll ich vorbereiten",
+            "wie soll ich mich vorbereiten",
+            "wie bereite ich mich",
+            "worauf soll ich achten",
+            "was muss ich vorbereiten",
+            "welche schritte",
+        ]
+    ):
         return "guidance_plan"
 
-    if any(phrase in lowered for phrase in [
-        # English
-        "what does this page say about",
-        "what requirements are clearly stated",
-        "what requirements are stated",
-        "what deadlines are mentioned",
-        "what is clearly stated",
-        "what is mentioned on this page",
-        "what does the page mention",
-
-        # Russian
-        "что говорится на этой странице",
-        "что сказано на этой странице",
-        "какие требования явно указаны",
-        "какие требования указаны",
-        "какие дедлайны указаны",
-        "какие сроки указаны",
-        "что явно указано",
-        "что упомянуто на этой странице",
-
-        # German
-        "was steht auf dieser seite",
-        "was sagt diese seite",
-        "welche voraussetzungen sind",
-        "welche anforderungen sind",
-        "welche fristen werden",
-        "welche deadlines werden",
-        "was ist klar angegeben",
-        "was wird auf dieser seite erwähnt"
-    ]):
+    if any(
+        phrase in lowered
+        for phrase in [
+            # English
+            "what does this page say about",
+            "what requirements are clearly stated",
+            "what requirements are stated",
+            "what deadlines are mentioned",
+            "what is clearly stated",
+            "what is mentioned on this page",
+            "what does the page mention",
+            # Russian
+            "что говорится на этой странице",
+            "что сказано на этой странице",
+            "какие требования явно указаны",
+            "какие требования указаны",
+            "какие дедлайны указаны",
+            "какие сроки указаны",
+            "что явно указано",
+            "что упомянуто на этой странице",
+            # German
+            "was steht auf dieser seite",
+            "was sagt diese seite",
+            "welche voraussetzungen sind",
+            "welche anforderungen sind",
+            "welche fristen werden",
+            "welche deadlines werden",
+            "was ist klar angegeben",
+            "was wird auf dieser seite erwähnt",
+        ]
+    ):
         return "evidence_summary"
 
     return "direct_answer"
 
+
 def detect_query_intent(query: str) -> str:
     lowered = query.lower().strip()
-    
-    if any(phrase in lowered for phrase in [
-        # English
-        "programme overview",
-        "program overview",
-        "summarize this programme",
-        "summarize this program",
-        "what should an applicant know",
-        "applicant overview",
 
-        # German
-        "studienüberblick",
-        "überblick über das studium",
-        "fasse dieses studium zusammen",
-        "fasse diesen studiengang zusammen",
-        "was sollte ein bewerber wissen",
-        "was sollte eine bewerberin wissen"
-    ]):
+    if any(
+        phrase in lowered
+        for phrase in [
+            # English
+            "programme overview",
+            "program overview",
+            "summarize this programme",
+            "summarize this program",
+            "what should an applicant know",
+            "applicant overview",
+            # German
+            "studienüberblick",
+            "überblick über das studium",
+            "fasse dieses studium zusammen",
+            "fasse diesen studiengang zusammen",
+            "was sollte ein bewerber wissen",
+            "was sollte eine bewerberin wissen",
+        ]
+    ):
         return "overview"
 
-    if any(word in lowered for word in [
-    # English
-        "language of instruction", "taught in",
-        "what language is the program taught in",
-
-    # Russian
-        "язык обучения", "на каком языке", "преподается",
-        "преподаётся", "какой язык программы",
-
-    # German
-        "unterrichtssprache", "sprache des studiums",
-        "auf welcher sprache", "in welcher sprache",
-        "wird der studiengang unterrichtet"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            # English
+            "language of instruction",
+            "taught in",
+            "what language is the program taught in",
+            # Russian
+            "язык обучения",
+            "на каком языке",
+            "преподается",
+            "преподаётся",
+            "какой язык программы",
+            # German
+            "unterrichtssprache",
+            "sprache des studiums",
+            "auf welcher sprache",
+            "in welcher sprache",
+            "wird der studiengang unterrichtet",
+        ]
+    ):
         return "language"
-    
-    if any(word in lowered for word in [
-        # English
-        "deadline", "deadlines", "when is", "until when",
-        "due date", "application deadline", "start date",
-        "semester start", "admission period", "application period",
 
-        # Russian
-        "дедлайн", "дедлайны", "срок", "сроки",
-        "до какого", "когда подавать", "период подачи",
-        "срок подачи", "сроки подачи", "дата начала",
-        "начало семестра",
-
-        # German
-        "frist", "fristen", "bewerbungsfrist",
-        "bis wann", "zeitraum", "bewerbungszeitraum",
-        "zulassungsfrist", "anmeldefrist", "semesterbeginn"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            # English
+            "deadline",
+            "deadlines",
+            "when is",
+            "until when",
+            "due date",
+            "application deadline",
+            "start date",
+            "semester start",
+            "admission period",
+            "application period",
+            # Russian
+            "дедлайн",
+            "дедлайны",
+            "срок",
+            "сроки",
+            "до какого",
+            "когда подавать",
+            "период подачи",
+            "срок подачи",
+            "сроки подачи",
+            "дата начала",
+            "начало семестра",
+            # German
+            "frist",
+            "fristen",
+            "bewerbungsfrist",
+            "bis wann",
+            "zeitraum",
+            "bewerbungszeitraum",
+            "zulassungsfrist",
+            "anmeldefrist",
+            "semesterbeginn",
+        ]
+    ):
         return "deadline"
 
-    if any(word in lowered for word in [
-        "document", "documents", "certificate", "certificates",
-        "transcript", "transcripts", "cv", "motivation letter",
-        "proof", "proof of english", "language certificate"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            "document",
+            "documents",
+            "certificate",
+            "certificates",
+            "transcript",
+            "transcripts",
+            "cv",
+            "motivation letter",
+            "proof",
+            "proof of english",
+            "language certificate",
+        ]
+    ):
         return "documents"
 
-    if any(word in lowered for word in [
-    # English
-        "admission", "apply", "application", "requirements",
-        "eligible", "eligibility", "before applying",
-        "how should i prepare", "what do i need before applying",
-        "how to apply",
-
-    # Russian
-        "поступление", "поступить", "как поступить", "чтобы поступить",
-        "подать заявку", "заявка", "требования",
-        "допуск", "перед подачей", "перед поступлением",
-        "как подготовиться", "что нужно подготовить",
-        "что я должен подготовить", "что мне нужно подготовить",
-        "что надо подготовить", "что подготовить",
-
-    # German
-        "bewerbung", "zulassung", "voraussetzungen",
-        "anforderungen", "bewerben", "einschreibung",
-        "immatrikulation", "vor der bewerbung"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            # English
+            "admission",
+            "apply",
+            "application",
+            "requirements",
+            "eligible",
+            "eligibility",
+            "before applying",
+            "how should i prepare",
+            "what do i need before applying",
+            "how to apply",
+            # Russian
+            "поступление",
+            "поступить",
+            "как поступить",
+            "чтобы поступить",
+            "подать заявку",
+            "заявка",
+            "требования",
+            "допуск",
+            "перед подачей",
+            "перед поступлением",
+            "как подготовиться",
+            "что нужно подготовить",
+            "что я должен подготовить",
+            "что мне нужно подготовить",
+            "что надо подготовить",
+            "что подготовить",
+            # German
+            "bewerbung",
+            "zulassung",
+            "voraussetzungen",
+            "anforderungen",
+            "bewerben",
+            "einschreibung",
+            "immatrikulation",
+            "vor der bewerbung",
+        ]
+    ):
         return "admission"
-    
-    
-    if any(word in lowered for word in [
-        # English
-        "programme overview", "program overview",
-        "summarize this programme", "summarize this program",
-        "what should an applicant know",
-        "applicant overview",
 
-        # German
-        "studienüberblick", "überblick über das studium",
-        "fasse dieses studium zusammen",
-        "fasse diesen studiengang zusammen",
-        "was sollte ein bewerber wissen",
-        "was sollte eine bewerberin wissen"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            # English
+            "programme overview",
+            "program overview",
+            "summarize this programme",
+            "summarize this program",
+            "what should an applicant know",
+            "applicant overview",
+            # German
+            "studienüberblick",
+            "überblick über das studium",
+            "fasse dieses studium zusammen",
+            "fasse diesen studiengang zusammen",
+            "was sollte ein bewerber wissen",
+            "was sollte eine bewerberin wissen",
+        ]
+    ):
         return "admission"
 
-    if any(word in lowered for word in [
-    "study plan", "plan my studies", "how should i plan my studies",
-    "semester", "semesters", "ects", "curriculum",
-    "minor", "minors", "elective", "electives",
-    "bachelor thesis", "steop",
-    "structure", "program structure", "study structure"
-    ]):
+    if any(
+        word in lowered
+        for word in [
+            "study plan",
+            "plan my studies",
+            "how should i plan my studies",
+            "semester",
+            "semesters",
+            "ects",
+            "curriculum",
+            "minor",
+            "minors",
+            "elective",
+            "electives",
+            "bachelor thesis",
+            "steop",
+            "structure",
+            "program structure",
+            "study structure",
+        ]
+    ):
         return "study_structure"
 
     return "general"
+
 
 def detect_response_language(query: str) -> str:
     lowered = query.lower()
@@ -268,11 +356,22 @@ def detect_response_language(query: str) -> str:
 
     # German markers
     german_markers = [
-        "was ", "wie ", "welche", "welcher", "welches",
-        "studiengang", "bewerbung", "zulassung",
-        "voraussetzungen", "frist", "fristen",
-        "unterrichtssprache", "dauer", "semester",
-        "auf deutsch", "deutsch"
+        "was ",
+        "wie ",
+        "welche",
+        "welcher",
+        "welches",
+        "studiengang",
+        "bewerbung",
+        "zulassung",
+        "voraussetzungen",
+        "frist",
+        "fristen",
+        "unterrichtssprache",
+        "dauer",
+        "semester",
+        "auf deutsch",
+        "deutsch",
     ]
 
     if any(marker in lowered for marker in german_markers):
@@ -280,9 +379,10 @@ def detect_response_language(query: str) -> str:
 
     return "English"
 
+
 def build_retrieval_query(user_query: str) -> str:
     intent = detect_query_intent(user_query)
-    
+
     if intent == "overview":
         return (
             f"{user_query} "
@@ -310,7 +410,6 @@ def build_retrieval_query(user_query: str) -> str:
             "programme facts program facts degree ects duration language of instruction "
             "curriculum master bachelor deadlines application period "
             "tuition fees study start semester start "
-
             # German
             "zulassung voraussetzungen aufnahmeverfahren bewerbung "
             "erforderliche unterlagen benötigte unterlagen dokumente formular "
@@ -325,7 +424,7 @@ def build_retrieval_query(user_query: str) -> str:
             f"{user_query} "
             "deadline application deadline semester start admission period dates"
         )
-        
+
     if intent == "language":
         return (
             f"{user_query} "
@@ -344,6 +443,7 @@ def build_retrieval_query(user_query: str) -> str:
         )
 
     return user_query
+
 
 def clean_web_text(text: str) -> str:
     if not text:
@@ -417,7 +517,6 @@ def clean_web_text(text: str) -> str:
         "latest news",
         "for employers",
         "research & knowledge exchange",
-
     ]
 
     cleaned_lines = []
@@ -443,13 +542,16 @@ def clean_web_text(text: str) -> str:
     text = " ".join(cleaned_lines)
 
     # Remove repeated leftover phrases
-    text = re.sub(r"(Go to overview of page sections\s*)+", " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"(Go to overview of page sections\s*)+", " ", text, flags=re.IGNORECASE
+    )
     text = re.sub(r"(End of this page section\.\s*)+", " ", text, flags=re.IGNORECASE)
 
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
+
 
 def classify_source_type(url: str, text: str) -> str:
     lowered_url = url.lower()
@@ -459,125 +561,161 @@ def classify_source_type(url: str, text: str) -> str:
 
     # Most specific URL-based classifications first
 
-    if any(marker in lowered_url for marker in [
-        "english-language",
-        "language-requirements",
-        "english-language-requirements"
-    ]):
+    if any(
+        marker in lowered_url
+        for marker in [
+            "english-language",
+            "language-requirements",
+            "english-language-requirements",
+        ]
+    ):
         return "language_page"
 
-    if any(marker in lowered_url for marker in [
-        "fees-and-funding",
-        "fees",
-        "funding"
-    ]):
+    if any(marker in lowered_url for marker in ["fees-and-funding", "fees", "funding"]):
         return "fees_page"
 
-    if any(marker in lowered_url for marker in [
-        "student-visa",
-        "visa-guide",
-        "visa"
-    ]):
+    if any(marker in lowered_url for marker in ["student-visa", "visa-guide", "visa"]):
         return "visa_page"
 
-    if any(marker in lowered_url for marker in [
-        "entry-requirements",
-        "requirements"
-    ]):
+    if any(marker in lowered_url for marker in ["entry-requirements", "requirements"]):
         return "admission_page"
 
-    if any(marker in lowered_url for marker in [
-        "zulassungsfristen",
-        "deadlines",
-        "dates-and-deadlines",
-        "termine-fristen",
-        "semestertermine",
-        "semester-dates",
-        "term-dates",
-    ]):
+    if any(
+        marker in lowered_url
+        for marker in [
+            "zulassungsfristen",
+            "deadlines",
+            "dates-and-deadlines",
+            "termine-fristen",
+            "semestertermine",
+            "semester-dates",
+            "term-dates",
+        ]
+    ):
         return "deadline_page"
-    
-    if any(marker in lowered_url for marker in [
-        "praktikum",
-        "vorpraktikum",
-        "pre-internship",
-        "internship",
-        "praktikumsamt",
-    ]):
+
+    if any(
+        marker in lowered_url
+        for marker in [
+            "praktikum",
+            "vorpraktikum",
+            "pre-internship",
+            "internship",
+            "praktikumsamt",
+        ]
+    ):
         return "admission_page"
 
     # General admission classification after specific cases
 
-    if any(marker in lowered_url for marker in [
-        "zulassung-von-internationalen",
-        "admission-bachelor",
-        "applying",
-        "admission",
-        "bewerbung",
-        "zulassung"
-    ]):
+    if any(
+        marker in lowered_url
+        for marker in [
+            "zulassung-von-internationalen",
+            "admission-bachelor",
+            "applying",
+            "admission",
+            "bewerbung",
+            "zulassung",
+        ]
+    ):
         return "admission_page"
-    
+
     # Content-based deadline classification.
     # Keep this strict because many university pages mention "Semester Dates"
     # in navigation menus.
-    if any(marker in combined for marker in [
-        "application and enrollment deadline",
-        "re-enrollment deadline",
-        "lecture periods from summer semester",
-        "deadlines summer semester",
-        "deadlines winter semester",
-        "downloads lecture periods",
-        "semestertermine",
-        "bewerbungsfrist",
-    ]):
+    if any(
+        marker in combined
+        for marker in [
+            "application and enrollment deadline",
+            "re-enrollment deadline",
+            "lecture periods from summer semester",
+            "deadlines summer semester",
+            "deadlines winter semester",
+            "downloads lecture periods",
+            "semestertermine",
+            "bewerbungsfrist",
+        ]
+    ):
         return "deadline_page"
 
     # Content-based internship classification.
     # Keep this strict because programme pages may briefly mention
     # pre-program internships as one requirement.
-    if any(marker in combined for marker in [
-        "internship certificate must contain",
-        "template for the internship certificate",
-        "mandatory pre-internship duration",
-        "submission of the pre-internship certificate",
-        "praktikumsbescheinigung",
-        "praktikumsamt",
-    ]):
+    if any(
+        marker in combined
+        for marker in [
+            "internship certificate must contain",
+            "template for the internship certificate",
+            "mandatory pre-internship duration",
+            "submission of the pre-internship certificate",
+            "praktikumsbescheinigung",
+            "praktikumsamt",
+        ]
+    ):
         return "admission_page"
 
     # Programme pages before text-based language classification.
     # Many programme pages contain "Unterrichtssprache" or "English",
     # but that does not make the whole page a language requirements page.
-    if any(marker in lowered_url for marker in [
-        "studiengang",
-        "studienangebot",
-        "masterstudien",
-        "bachelorstudien",
-        "our-courses",
-        "courses",
-        "programme",
-        "program"
-    ]):
+    if any(
+        marker in lowered_url
+        for marker in [
+            "studiengang",
+            "studienangebot",
+            "masterstudien",
+            "bachelorstudien",
+            "our-courses",
+            "courses",
+            "programme",
+            "program",
+        ]
+    ):
         return "program_page"
 
-    if any(marker in combined for marker in [
-        "programme", "program", "degree", "ects", "curriculum",
-        "duration", "study programme", "bachelor", "master",
-        "studiengang", "studium", "curriculum", "regelstudienzeit",
-        "studiendauer", "ects-anrechnungspunkte", "abschluss"
-    ]):
+    if any(
+        marker in combined
+        for marker in [
+            "programme",
+            "program",
+            "degree",
+            "ects",
+            "curriculum",
+            "duration",
+            "study programme",
+            "bachelor",
+            "master",
+            "studiengang",
+            "studium",
+            "curriculum",
+            "regelstudienzeit",
+            "studiendauer",
+            "ects-anrechnungspunkte",
+            "abschluss",
+        ]
+    ):
         return "program_page"
 
-    if any(marker in combined for marker in [
-        "language requirements", "language proof", "proof of language",
-        "language certificate", "english b2", "german c1",
-        "cefr", "ielts", "toefl",
-        "sprachnachweis", "sprachkenntnisse"
-    ]):
+    if any(
+        marker in combined
+        for marker in [
+            "language requirements",
+            "language proof",
+            "proof of language",
+            "language certificate",
+            "english b2",
+            "german c1",
+            "cefr",
+            "ielts",
+            "toefl",
+            "sprachnachweis",
+            "sprachkenntnisse",
+        ]
+    ):
         return "language_page"
 
     return "unknown"
+
 
 def load_web_documents_from_url(url: str):
     loader = WebBaseLoader(
@@ -589,7 +727,7 @@ def load_web_documents_from_url(url: str):
             "parse_only": bs4.SoupStrainer(
                 ["main", "article", "h1", "h2", "h3", "p", "li"]
             )
-        }
+        },
     )
     docs = loader.load()
 
@@ -612,6 +750,7 @@ def load_web_documents_from_url(url: str):
         print(docs[0].page_content[:1500])
 
     return docs
+
 
 def build_web_vectorstore(url: str, embeddings):
     normalized_url = url.strip()
@@ -638,16 +777,14 @@ def build_web_vectorstore(url: str, embeddings):
         if header_parts:
             doc.page_content = "\n".join(header_parts) + "\n\n" + doc.page_content
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100
-    )
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     chunks = splitter.split_documents(docs)
 
     vectorstore = FAISS.from_documents(chunks, embeddings)
 
     WEB_VECTORSTORE_CACHE[normalized_url] = vectorstore
     return vectorstore
+
 
 def normalize_urls(urls: list[str]) -> list[str]:
     cleaned_urls = []
@@ -672,6 +809,7 @@ def normalize_urls(urls: list[str]) -> list[str]:
                 cleaned_urls.append(normalized_url)
 
     return cleaned_urls
+
 
 def build_web_vectorstore_from_urls(urls: list[str], embeddings):
     normalized_urls = normalize_urls(urls)
@@ -710,10 +848,7 @@ def build_web_vectorstore_from_urls(urls: list[str], embeddings):
 
             all_docs.append(doc)
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100
-    )
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
 
     chunks = splitter.split_documents(all_docs)
 
@@ -750,6 +885,7 @@ def extract_sources(results):
 
     return list(dict.fromkeys(sources))
 
+
 def build_context_from_docs(results):
     parts = []
 
@@ -774,6 +910,7 @@ def build_context_from_docs(results):
             parts.append(content)
 
     return "\n\n---\n\n".join(parts)
+
 
 def score_doc_for_source_type(doc, source_type: str) -> int:
     """
@@ -842,17 +979,17 @@ def score_doc_for_source_type(doc, source_type: str) -> int:
             "toefl",
         ],
         "fees_page": [
-        "tuition fees",
-        "course fees",
-        "fees and funding",
-        "funding options",
-        "scholarships",
-        "payment",
-        "deposit",
-        "holding fee",
-        "international students",
-        "berlin merit scholarship",
-        "regional pricing",
+            "tuition fees",
+            "course fees",
+            "fees and funding",
+            "funding options",
+            "scholarships",
+            "payment",
+            "deposit",
+            "holding fee",
+            "international students",
+            "berlin merit scholarship",
+            "regional pricing",
         ],
         "visa_page": [
             "student visa",
@@ -877,7 +1014,10 @@ def score_doc_for_source_type(doc, source_type: str) -> int:
 
     return score
 
-def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fetch_k: int = 30):
+
+def search_by_source_type(
+    vectorstore, query: str, source_type: str, k: int, fetch_k: int = 30
+):
     """
     Search broadly, manually filter by source_type,
     then rank chunks by source-specific keyword score.
@@ -893,7 +1033,7 @@ def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fet
     ranked = sorted(
         filtered,
         key=lambda doc: score_doc_for_source_type(doc, source_type),
-        reverse=True
+        reverse=True,
     )
 
     selected = ranked[:k]
@@ -908,7 +1048,10 @@ def search_by_source_type(vectorstore, query: str, source_type: str, k: int, fet
 
     return selected
 
-def score_doc_for_overview_slot(doc, slot_name: str, slot_keywords: list[str], preferred_source_types: list[str]) -> int:
+
+def score_doc_for_overview_slot(
+    doc, slot_name: str, slot_keywords: list[str], preferred_source_types: list[str]
+) -> int:
     """
     Score a retrieved chunk for a specific applicant information slot.
     """
@@ -1029,7 +1172,11 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
                 "deutschkenntnisse",
                 "englischkenntnisse",
             ],
-            "preferred_source_types": ["language_page", "admission_page", "program_page"],
+            "preferred_source_types": [
+                "language_page",
+                "admission_page",
+                "program_page",
+            ],
             "min_score": 4,
         },
         "documents": {
@@ -1104,7 +1251,11 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
                 "wintersemester",
                 "sommersemester",
             ],
-            "preferred_source_types": ["deadline_page", "admission_page", "program_page"],
+            "preferred_source_types": [
+                "deadline_page",
+                "admission_page",
+                "program_page",
+            ],
             "min_score": 4,
         },
         "visa": {
@@ -1157,7 +1308,9 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         for score, doc in scored_docs[:3]:
             source_type = (doc.metadata or {}).get("source_type", "unknown")
             source = (doc.metadata or {}).get("source", "unknown")
-            print(f"DEBUG candidate {slot_name}: score={score} | {source_type} | {source}")
+            print(
+                f"DEBUG candidate {slot_name}: score={score} | {source_type} | {source}"
+            )
             print(doc.page_content[:250])
             print("---")
 
@@ -1196,13 +1349,16 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
 
     return selected
 
-def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: int = 4):
+
+def balanced_similarity_search(
+    vectorstore, query: str, intent: str, default_k: int = 4
+):
     """
     Source-balanced retrieval for multi-page web assistant.
 
     Uses source-specific queries and manual filtering by source_type.
     """
-    
+
     if intent == "overview":
         source_type_targets = [
             ("program_page", 2),
@@ -1217,7 +1373,7 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
             ("program_page", 2),
             ("admission_page", 2),
             ("deadline_page", 1),
-        ]   
+        ]
     elif intent == "deadline":
         source_type_targets = [
             ("deadline_page", 4),
@@ -1269,12 +1425,12 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
             "Sprachnachweis Sprachkenntnisse Englisch Deutsch"
         ),
         "fees_page": (
-        "tuition fees course fees funding scholarships payment deposit holding fee "
-        "fees and funding international students Berlin undergraduate postgraduate"
+            "tuition fees course fees funding scholarships payment deposit holding fee "
+            "fees and funding international students Berlin undergraduate postgraduate"
         ),
         "visa_page": (
-        "student visa visa guide acceptance letter embassy consulate Germany "
-        "international student visa residence permit application documents"
+            "student visa visa guide acceptance letter embassy consulate Germany "
+            "international student visa residence permit application documents"
         ),
     }
 
@@ -1291,7 +1447,7 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
             query=source_query,
             source_type=source_type,
             k=k,
-            fetch_k=fetch_k
+            fetch_k=fetch_k,
         )
         for doc in results:
             content_key = doc.page_content[:300]
@@ -1318,6 +1474,7 @@ def balanced_similarity_search(vectorstore, query: str, intent: str, default_k: 
         print("---")
 
     return selected
+
 
 def ask_question(query, vectorstore, llm):
     retrieval_query = build_retrieval_query(query)
@@ -1363,8 +1520,9 @@ Question:
         "mode": "rag",
         "question": query,
         "answer": response.content.strip(),
-        "sources": sources
+        "sources": sources,
     }
+
 
 def build_study_plan(user_request, llm):
     response_language = detect_response_language(user_request)
@@ -1394,29 +1552,24 @@ User request:
     if not text:
         if response_language == "Russian":
             text = (
-            "Я пока не смог сформировать подробный план для этого запроса. "
-            "Попробуй переформулировать вопрос или спросить конкретнее про admission, documents, deadlines или study structure."
-        )
+                "Я пока не смог сформировать подробный план для этого запроса. "
+                "Попробуй переформулировать вопрос или спросить конкретнее про admission, documents, deadlines или study structure."
+            )
         elif response_language == "German":
             text = (
-            "Ich konnte für diese Anfrage noch keinen detaillierten Plan erstellen. "
-            "Bitte formuliere die Frage genauer oder frage konkreter zu admission, documents, deadlines oder study structure."
-        )
+                "Ich konnte für diese Anfrage noch keinen detaillierten Plan erstellen. "
+                "Bitte formuliere die Frage genauer oder frage konkreter zu admission, documents, deadlines oder study structure."
+            )
         else:
             text = (
-            "I could not generate a detailed plan for this request yet. "
-            "Please try rephrasing the question or ask a more specific question "
-            "about admission, documents, deadlines, or study structure."
-        )
+                "I could not generate a detailed plan for this request yet. "
+                "Please try rephrasing the question or ask a more specific question "
+                "about admission, documents, deadlines, or study structure."
+            )
 
-    return {
-        "mode": "plan",
-        "request": user_request,
-        "answer": text,
-        "sources": []
-    }
-    
-    
+    return {"mode": "plan", "request": user_request, "answer": text, "sources": []}
+
+
 def build_evidence_summary(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
     response_language = detect_response_language(user_request)
@@ -1424,12 +1577,9 @@ def build_evidence_summary(user_request, vectorstore, llm):
 
     k = 6 if intent in {"deadline", "admission", "study_structure", "language"} else 4
     results = balanced_similarity_search(
-        vectorstore=vectorstore,
-        query=retrieval_query,
-        intent=intent,
-        default_k=6
+        vectorstore=vectorstore, query=retrieval_query, intent=intent, default_k=6
     )
-    
+
     context = build_context_from_docs(results)
 
     print("DEBUG summary intent:", intent)
@@ -1487,7 +1637,7 @@ MISSING_INFO:
             "mode": "fallback_plan",
             "request": user_request,
             "answer": fallback["answer"],
-            "sources": sources
+            "sources": sources,
         }
 
     document_facts = []
@@ -1542,78 +1692,75 @@ MISSING_INFO:
         "document_facts": document_facts,
         "missing_info": missing_info,
         "answer": answer,
-        "sources": sources
+        "sources": sources,
     }
-    
+
+
 def build_programme_overview(user_request, vectorstore, llm):
     response_language = detect_response_language(user_request)
 
     results = retrieve_programme_overview_context(
-        vectorstore=vectorstore,
-        user_request=user_request
+        vectorstore=vectorstore, user_request=user_request
     )
 
     if len(results) < 4:
         print("DEBUG overview fallback: slot retrieval returned too little context")
         results = balanced_similarity_search(
-            vectorstore=vectorstore,
-            query=user_request,
-            intent="overview",
-            default_k=4
+            vectorstore=vectorstore, query=user_request, intent="overview", default_k=4
         )
-    
+
     context = build_context_from_docs(results)
     sources = extract_sources(results)
 
     prompt = f"""
-    You are an expert university admission assistant.
+You are an expert university admission assistant.
 
-    Use ONLY the document context below.
-    Create a concise applicant-facing overview.
-    Do not invent missing facts.
+Use ONLY the document context below.
+Create a concise applicant-facing overview.
+Do not invent missing facts.
 
-    Write the answer in {response_language}.
+Write the answer in {response_language}.
 
-    Use this exact structure:
+Use this exact structure:
 
-    Programme
-    - Name:
-    - Degree:
-    - Duration:
-    - ECTS:
-    - Language:
+Programme
+- Name:
+- Degree:
+- Duration:
+- ECTS:
+- Language:
 
-    Admission
-    - Clearly stated admission facts:
-    - Required form or procedure:
+Admission
+- Clearly stated admission facts:
+- Required form or procedure:
 
-    Documents
-    - Required or mentioned documents:
-    - Translation/legalisation rules:
+Documents
+- Required or mentioned documents:
+- Translation/legalisation rules:
 
-    Deadlines
-    - Clearly stated deadlines or application periods:
+Deadlines
+- Clearly stated deadlines or application periods:
 
-    Missing information
-    - Important information not stated in the provided context:
+Missing information
+- Important information not stated in the provided context:
 
-    Next steps
-    1. ...
-    2. ...
-    3. ...
+Next steps
+1. ...
+2. ...
+3. ...
 
-    Rules:
-    - If a field is not stated, write "Not stated in the provided context."
-    - Prefer concrete values over vague summaries.
-    - Keep country-specific rules short and mark them as conditional.
-    - Keep the answer practical and easy to scan.
+Rules:
+- If a field is not stated, write "Not stated in the provided context."
+- Prefer concrete values over vague summaries.
+- Keep country-specific rules short and mark them as conditional.
+- Keep the answer practical and easy to scan.
 
-    Document context:
-    {context}
+Document context:
+{context}
 
-    User request:
-    {user_request}
-    """
+User request:
+{user_request}
+"""
 
     response = llm.invoke(prompt)
     text = response.content.strip()
@@ -1624,76 +1771,144 @@ def build_programme_overview(user_request, vectorstore, llm):
     print(repr(text))
 
     if not text:
-        print("DEBUG overview fallback: empty LLM response, retrying with balanced retrieval")
+        print(
+            "DEBUG overview retry: empty LLM response, retrying with same slot context"
+        )
+
+        retry_prompt = f"""
+You are an expert university admission assistant.
+
+Use ONLY the document context below.
+Create a concise applicant-facing overview.
+Do not invent missing facts.
+
+Write the answer in {response_language}.
+
+Return the answer with these headings:
+
+Programme
+Admission
+Documents
+Deadlines
+Missing information
+Next steps
+
+Rules:
+- Keep the answer short and concrete.
+- If something is not stated, write "Not stated in the provided context."
+- Use bullet points.
+- Do not return an empty answer.
+
+Document context:
+{context}
+
+User request:
+{user_request}
+"""
+
+        retry_response = llm.invoke(retry_prompt)
+        text = retry_response.content.strip()
+
+        print("DEBUG OVERVIEW RETRY RAW RESPONSE:")
+        print(repr(retry_response.content))
+        print("DEBUG OVERVIEW RETRY STRIPPED TEXT:")
+        print(repr(text))
+
+    if not text:
+        print("DEBUG overview fallback: retry also empty, using balanced retrieval")
 
         fallback_results = balanced_similarity_search(
-            vectorstore=vectorstore,
-            query=user_request,
-            intent="overview",
-            default_k=4
+            vectorstore=vectorstore, query=user_request, intent="overview", default_k=4
         )
 
         fallback_context = build_context_from_docs(fallback_results)
-        sources = extract_sources(fallback_results)
+        fallback_sources = extract_sources(fallback_results)
 
         fallback_prompt = f"""
-    You are an expert university admission assistant.
+You are an expert university admission assistant.
 
-    Use ONLY the document context below.
-    Create a concise applicant-facing overview.
-    Do not invent missing facts.
+Use ONLY the document context below.
+Create a concise applicant-facing overview.
+Do not invent missing facts.
 
-    Write the answer in {response_language}.
+Write the answer in {response_language}.
 
-    Use this structure:
+Use this structure:
 
-    Programme
-    - Name:
-    - Degree:
-    - Duration:
-    - ECTS:
-    - Language:
+Programme
+- Name:
+- Degree:
+- Duration:
+- ECTS:
+- Language:
 
-    Admission
-    - Clearly stated admission facts:
+Admission
+- Clearly stated admission facts:
+- Required form or procedure:
 
-    Documents
-    - Required or mentioned documents:
+Documents
+- Required or mentioned documents:
+- Translation/legalisation rules:
 
-    Deadlines
-    - Clearly stated deadlines or application periods:
+Deadlines
+- Clearly stated deadlines or application periods:
 
-    Missing information
-    - Important information not stated in the provided context:
+Missing information
+- Important information not stated in the provided context:
 
-    Next steps
-    1. ...
-    2. ...
-    3. ...
+Next steps
+1. ...
+2. ...
+3. ...
 
-    Document context:
-    {fallback_context}
+Rules:
+- If a field is not stated, write "Not stated in the provided context."
+- Prefer concrete values over vague summaries.
+- Keep the answer practical and easy to scan.
 
-    User request:
-    {user_request}
-    """
+Document context:
+{fallback_context}
+
+User request:
+{user_request}
+"""
 
         fallback_response = llm.invoke(fallback_prompt)
         text = fallback_response.content.strip()
 
-        if not text:
+        print("DEBUG OVERVIEW FALLBACK RAW RESPONSE:")
+        print(repr(fallback_response.content))
+        print("DEBUG OVERVIEW FALLBACK STRIPPED TEXT:")
+        print(repr(text))
+
+        if text:
+            sources = fallback_sources
+
+    if not text:
+        if response_language == "Russian":
             text = (
-                "I could not generate a programme overview from the provided sources. "
-                "Try asking specifically about programme facts, admission requirements, documents, or deadlines."
+                "Я нашёл релевантный контекст, но не смог сформировать ответ. "
+                "Попробуй перезапустить запрос или задать вопрос конкретнее про programme facts, admission, documents или deadlines."
+            )
+        elif response_language == "German":
+            text = (
+                "Ich habe relevanten Kontext gefunden, konnte aber keine Antwort generieren. "
+                "Bitte versuche die Anfrage erneut oder frage konkreter zu programme facts, admission, documents oder deadlines."
+            )
+        else:
+            text = (
+                "I found relevant context, but could not generate an answer. "
+                "Please try again or ask more specifically about programme facts, admission, documents, or deadlines."
             )
 
     return {
         "mode": "programme_overview",
         "question": user_request,
         "answer": text,
-        "sources": sources
+        "sources": sources,
     }
-    
+
+
 def build_contextual_plan(user_request, vectorstore, llm):
     intent = detect_query_intent(user_request)
     response_language = detect_response_language(user_request)
@@ -1701,10 +1916,7 @@ def build_contextual_plan(user_request, vectorstore, llm):
 
     k = 6 if intent == "study_structure" else 4
     results = balanced_similarity_search(
-        vectorstore=vectorstore,
-        query=user_request,
-        intent=intent,
-        default_k=k
+        vectorstore=vectorstore, query=user_request, intent=intent, default_k=k
     )
 
     context = build_context_from_docs(results)
@@ -1812,7 +2024,7 @@ User request:
             "document_facts": [],
             "missing_info": [],
             "answer": fallback_text,
-            "sources": sources
+            "sources": sources,
         }
 
     document_facts = []
@@ -1872,11 +2084,11 @@ User request:
             lowered_fact = stripped_fact.lower()
 
             if lowered_fact.startswith("[conditional]"):
-                conditional_facts.append(stripped_fact[len("[conditional]"):].strip())
+                conditional_facts.append(stripped_fact[len("[conditional]") :].strip())
             elif lowered_fact.startswith("[contact]"):
-                contact_facts.append(stripped_fact[len("[contact]"):].strip())
+                contact_facts.append(stripped_fact[len("[contact]") :].strip())
             elif lowered_fact.startswith("[general]"):
-                general_facts.append(stripped_fact[len("[general]"):].strip())
+                general_facts.append(stripped_fact[len("[general]") :].strip())
             else:
                 other_facts.append(stripped_fact)
 
@@ -1919,44 +2131,31 @@ User request:
         "document_facts": document_facts,
         "missing_info": missing_info,
         "answer": answer,
-        "sources": sources
+        "sources": sources,
     }
-    
+
 
 # --- загрузка и подготовка базы один раз при старте ---
 loader = PyPDFLoader("data/uni.pdf")
 docs = loader.load()
 
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=100
-)
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
 chunks = splitter.split_documents(docs)
 
 embeddings = OpenAIEmbeddings()
 vectorstore = FAISS.from_documents(chunks, embeddings)
 
-llm = ChatOpenAI(
-    model="gpt-5.5",
-    temperature=0,
-    max_tokens=900
-)
+llm = ChatOpenAI(model="gpt-5.5", temperature=0, max_tokens=900)
 
 
 class QuestionRequest(BaseModel):
-    question: str = Field(
-        ...,
-        description="User question for Uni Assistant"
-    )
+    question: str = Field(..., description="User question for Uni Assistant")
 
     model_config = {
-        "json_schema_extra": {
-            "example": {
-                "question": "what English level is required"
-            }
-        }
+        "json_schema_extra": {"example": {"question": "what English level is required"}}
     }
-    
+
+
 class WebQuestionRequest(BaseModel):
     url: str
     question: str
@@ -1965,25 +2164,26 @@ class WebQuestionRequest(BaseModel):
         "json_schema_extra": {
             "example": {
                 "url": "https://www.aau.at/en/studien/bachelor-digital-media-culture-and-communication/",
-                "question": "What is the name of the program?"
+                "question": "What is the name of the program?",
             }
         }
     }
-    
+
+
 class WebMultiQuestionRequest(BaseModel):
     urls: list[str] = Field(
         ...,
         min_length=1,
-        description="List of official university page URLs to use as sources"
+        description="List of official university page URLs to use as sources",
     )
     question: str = Field(
-        ...,
-        min_length=1,
-        description="User question about the provided sources"
+        ..., min_length=1, description="User question about the provided sources"
     )
+
 
 class WebPreviewRequest(BaseModel):
     url: str
+
 
 @app.get("/")
 def root():
@@ -1994,12 +2194,14 @@ def root():
 def ask(request: QuestionRequest):
     return ask_question(request.question, vectorstore, llm)
 
+
 @app.post("/plan")
 def build_plan(request: QuestionRequest):
     result = build_study_plan(request.question, llm)
     print("DEBUG PLAN RESPONSE:", result)
     return result
-    
+
+
 @app.post("/assistant")
 def assistant(request: QuestionRequest):
     query = request.question.strip()
@@ -2055,10 +2257,12 @@ def assistant(request: QuestionRequest):
 
     return rag_result
 
+
 @app.post("/web-ask")
 def web_ask(request: WebQuestionRequest):
     web_vectorstore = build_web_vectorstore(request.url, embeddings)
     return ask_question(request.question, web_vectorstore, llm)
+
 
 @app.post("/web-assistant")
 def web_assistant(request: WebQuestionRequest):
@@ -2116,6 +2320,7 @@ def web_assistant(request: WebQuestionRequest):
         return plan_result
 
     return rag_result
+
 
 @app.post("/web-multi-assistant")
 def web_multi_assistant(request: WebMultiQuestionRequest):
@@ -2179,17 +2384,13 @@ def web_multi_assistant(request: WebMultiQuestionRequest):
 
     return rag_result
 
+
 @app.post("/web-preview")
 def web_preview(request: WebPreviewRequest):
     docs = load_web_documents_from_url(request.url)
 
     if not docs:
-        return {
-            "source": request.url,
-            "title": None,
-            "language": None,
-            "preview": ""
-        }
+        return {"source": request.url, "title": None, "language": None, "preview": ""}
 
     doc = docs[0]
 
@@ -2197,7 +2398,5 @@ def web_preview(request: WebPreviewRequest):
         "source": doc.metadata.get("source"),
         "title": doc.metadata.get("title"),
         "language": doc.metadata.get("language"),
-        "preview": doc.page_content[:1500]
+        "preview": doc.page_content[:1500],
     }
-    
-    
