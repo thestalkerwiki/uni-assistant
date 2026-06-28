@@ -445,20 +445,93 @@ def build_retrieval_query(user_query: str) -> str:
     return user_query
 
 
+def remove_mega_menu_blocks(text: str) -> str:
+    """
+    Remove long navigation / mega-menu blocks that often appear
+    as one flattened line after web extraction.
+    """
+
+    mega_menu_patterns = [
+        # RWTH global menu.
+        r"First Year Students Students Early-Career Researchers.*?Quality Management in Teaching",
+        # RWTH Faculty 3 menu.
+        r"Academics Research Faculty 3 Academics Submenu: Academics.*?Interdisciplinary research institutions",
+        # Generic university global menu blocks.
+        r"(Skip to main content|Skip to content|Main navigation).*?(Imprint|Privacy Policy|Data Protection|Sitemap)",
+        r"(About the University|Research|Studies|International|Alumni|News|Events).*?(Contact|Imprint|Privacy Policy|Sitemap)",
+        # Common flattened header/navigation sequences.
+        r"(Home|Study|Research|International|About).*?(Contact|Imprint|Privacy Policy|Cookie Settings)",
+        r"(Prospective Students|Current Students|International Students|Alumni).*?(Contact|Imprint|Sitemap)",
+        # Repeated university audience menus.
+        r"(Students|Researchers|International|Alumni|Corporate Visitors|Press).*?(Before Your Studies|During Your Studies|After Graduation)",
+        # RWTH leftover compact header fragments.
+        r"Degree Programs Admission Requirements Video Tutorials.*?Degree ProgramsCurrent Degree Programs",
+        r"Degree Programs Admission Requirements Video Tutorials.*?Search by NameStartAcademics",
+        r"Faculty 3 Bachelor's Degree Programs.*?Search by NameStartAcademicsStudent ServicesInternship Office",
+        r"Degree Programs Admission Requirements Video Tutorials.*?Staff in the Registrar's Office",
+    ]
+
+    for pattern in mega_menu_patterns:
+        text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+
+    return text
+
+
 def clean_web_text(text: str) -> str:
     if not text:
         return ""
 
-    # Normalize line endings first, but keep line structure
+    # Normalize line endings first, but keep line structure.
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
     noise_phrases = [
+        # Generic navigation / accessibility
         "page navigation",
+        "main navigation",
+        "secondary navigation",
+        "breadcrumb",
+        "breadcrumbs",
+        "skip to main content",
+        "skip to content",
+        "skip navigation",
+        "go to overview of page sections",
+        "begin of page section",
+        "end of this page section",
+        "go to contents",
+        "go to position marker",
+        "go to main navigation",
+        "go to additional information",
+        "go to page settings",
+        "to improve support for screen readers",
+        "to deactivate improved support",
+        "accesskey",
+        "page sections",
+        "page settings",
+        "additional information",
+        "accessibility declaration",
+        "barrierefreiheit",
+        "zur hauptnavigation springen",
+        "zum inhaltsbereich springen",
+        "leichte sprache",
+        # Footer / legal / meta
+        "data protection declaration",
+        "privacy policy",
+        "cookie policy",
+        "cookie settings",
+        "manage cookies",
+        "accept all cookies",
+        "decline cookies",
+        "imprint",
+        "legal notice",
+        "sitemap",
+        "web editors",
+        "copyright",
+        "all rights reserved",
+        # Generic university navigation / marketing
         "about the university",
         "organisation",
         "faculties",
-        "working at university of graz",
-        "developing solutions for the world of tomorrow",
+        "working at university",
         "research profile",
         "research questions",
         "research portal",
@@ -468,37 +541,11 @@ def clean_web_text(text: str) -> str:
         "commission for scientific integrity",
         "prospective students",
         "post-registration",
-        "to improve support for screen readers",
-        "to deactivate improved support",
-        "go to overview of page sections",
-        "begin of page section",
-        "end of this page section",
-        "go to contents",
-        "go to position marker",
-        "go to main navigation",
-        "go to additional information",
-        "go to page settings",
-        "accesskey",
-        "page sections",
-        "page settings",
-        "main navigation",
-        "additional information",
-        "accessibility declaration",
-        "data protection declaration",
-        "imprint",
-        "sitemap",
-        "web editors",
+        "student login",
+        "login",
         "moodle",
         "unigrazonline",
-        "zur hauptnavigation springen",
-        "zum inhaltsbereich springen",
-        "leichte sprache",
-        "barrierefreiheit",
         "contact us",
-        "login",
-        "student login",
-        "complete an application",
-        "manage a submitted application",
         "our campus",
         "campus tour",
         "why study with us",
@@ -507,16 +554,81 @@ def clean_web_text(text: str) -> str:
         "explore the full range of degrees",
         "find out more",
         "discover what it's like to study",
-        "programmes foundation year degree",
-        "undergraduate postgraduate",
-        "foundation year degree undergraduate postgraduate",
-        "courses and learning methods that suit you",
         "view all subjects",
         "discover a subject",
         "qualification level",
         "latest news",
         "for employers",
         "research & knowledge exchange",
+        # Social/share
+        "share this page",
+        "print this page",
+        "back to top",
+        "follow us",
+        "facebook",
+        "instagram",
+        "linkedin",
+        "youtube",
+        "twitter",
+        "x.com",
+    ]
+
+    menu_markers = [
+        "submenu:",
+        "menu:",
+        "navigation",
+        "quick links",
+        "related links",
+        "online services",
+        "before your studies",
+        "during your studies",
+        "after graduation",
+        "student lifecycle",
+        "corporate visitors",
+        "press academics",
+    ]
+
+    important_markers = [
+        "degree",
+        "bachelor",
+        "master",
+        "ects",
+        "duration",
+        "standard period of studies",
+        "language of instruction",
+        "admission requirements",
+        "entry requirements",
+        "enrollment requirements",
+        "application deadline",
+        "application period",
+        "deadline",
+        "deadlines",
+        "required documents",
+        "supporting documents",
+        "certificate",
+        "proof",
+        "transcript",
+        "tuition fees",
+        "semester contribution",
+        "study costs",
+        "student visa",
+        "residence permit",
+        "abitur",
+        "hzb",
+        "self assessment",
+        "pre-internship",
+        "internship certificate",
+        "studiendauer",
+        "abschluss",
+        "unterrichtssprache",
+        "zulassung",
+        "voraussetzungen",
+        "bewerbungsfrist",
+        "semestertermine",
+        "unterlagen",
+        "nachweise",
+        "studiengebühren",
+        "semesterbeitrag",
     ]
 
     cleaned_lines = []
@@ -528,26 +640,50 @@ def clean_web_text(text: str) -> str:
             continue
 
         lowered = line.lower()
+        word_count = len(line.split())
+        has_important_marker = any(marker in lowered for marker in important_markers)
 
-        # Remove obvious accessibility/navigation lines
-        if any(phrase in lowered for phrase in noise_phrases):
+        # Remove obvious navigation/footer lines unless they contain useful facts.
+        if not has_important_marker and any(
+            phrase in lowered for phrase in noise_phrases
+        ):
             continue
 
-        # Remove very short menu-like lines
+        # Remove very short fragments.
         if len(line) <= 2:
             continue
+
+        # Remove short menu-like lines.
+        menu_marker_hits = sum(1 for marker in menu_markers if marker in lowered)
+        if not has_important_marker and menu_marker_hits >= 1 and word_count < 120:
+            continue
+
+        # Remove extremely short link-like lines without numbers.
+        if not has_important_marker and word_count <= 5:
+            if not any(char.isdigit() for char in line):
+                continue
 
         cleaned_lines.append(line)
 
     text = " ".join(cleaned_lines)
 
-    # Remove repeated leftover phrases
-    text = re.sub(
-        r"(Go to overview of page sections\s*)+", " ", text, flags=re.IGNORECASE
-    )
-    text = re.sub(r"(End of this page section\.\s*)+", " ", text, flags=re.IGNORECASE)
+    # Important: remove long flattened menu blocks after joining lines.
+    text = remove_mega_menu_blocks(text)
 
-    # Normalize whitespace
+    repeated_noise_patterns = [
+        r"(Go to overview of page sections\s*)+",
+        r"(End of this page section\.\s*)+",
+        r"(Read more\s*){2,}",
+        r"(Find out more\s*){2,}",
+        r"(Show more\s*){2,}",
+        r"(Learn more\s*){2,}",
+        r"(Contact\s*){2,}",
+        r"(Share\s*){2,}",
+    ]
+
+    for pattern in repeated_noise_patterns:
+        text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
@@ -1261,21 +1397,25 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         "visa": {
             "query": (
                 f"{user_request} "
-                "student visa residence permit international students embassy consulate "
-                "Visum Aufenthaltstitel internationale Studierende"
+                "student visa visa guide residence permit immigration embassy consulate "
+                "international student visa acceptance letter "
+                "Visum Aufenthaltstitel Botschaft Konsulat Einreise"
             ),
             "keywords": [
                 "student visa",
+                "visa guide",
                 "residence permit",
-                "international students",
+                "immigration",
                 "embassy",
                 "consulate",
+                "acceptance letter",
                 "visum",
                 "aufenthaltstitel",
-                "internationale studierende",
+                "botschaft",
+                "konsulat",
             ],
-            "preferred_source_types": ["visa_page", "admission_page"],
-            "min_score": 5,
+            "preferred_source_types": ["visa_page"],
+            "min_score": 7,
         },
     }
 
