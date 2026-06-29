@@ -1022,6 +1022,58 @@ def extract_sources(results):
     return list(dict.fromkeys(sources))
 
 
+def build_emergency_overview_from_docs(results, response_language: str) -> str:
+    lines = []
+
+    if response_language == "Russian":
+        lines.append("## Programme overview")
+        lines.append("")
+        lines.append(
+            "I found relevant university information, but the AI model did not generate a full narrative response."
+        )
+        lines.append(
+            "Here is a safe evidence-based summary from the retrieved sources:"
+        )
+    else:
+        lines.append("## Programme overview")
+        lines.append("")
+        lines.append(
+            "I found relevant university information, but the AI model did not generate a full narrative response."
+        )
+        lines.append(
+            "Here is a safe evidence-based summary from the retrieved sources:"
+        )
+
+    lines.append("")
+
+    for doc in results:
+        metadata = doc.metadata or {}
+        slot = metadata.get("overview_slot", "general")
+        source_type = metadata.get("source_type", "unknown")
+        content = doc.page_content.strip()
+
+        if not content:
+            continue
+
+        preview = content[:450].strip()
+
+        lines.append(f"### {slot.replace('_', ' ').title()}")
+        lines.append(f"- Source type: {source_type}")
+        lines.append(f"- Evidence: {preview}...")
+        lines.append("")
+
+    lines.append("## Next steps")
+    lines.append("1. Check the official programme page for final admission details.")
+    lines.append(
+        "2. Verify application and enrollment deadlines on the university website."
+    )
+    lines.append(
+        "3. Prepare stated documents and language proof before applying or enrolling."
+    )
+
+    return "\n".join(lines).strip()
+
+
 def build_context_from_docs(results):
     parts = []
 
@@ -1030,6 +1082,7 @@ def build_context_from_docs(results):
         title = metadata.get("title", "")
         source = metadata.get("source", "")
         source_type = metadata.get("source_type", "")
+        overview_slot = metadata.get("overview_slot", "")
         content = doc.page_content.strip()
 
         meta_block = []
@@ -1039,6 +1092,8 @@ def build_context_from_docs(results):
             meta_block.append(f"Source: {source}")
         if source_type:
             meta_block.append(f"Source type: {source_type}")
+        if overview_slot:
+            meta_block.append(f"Overview slot: {overview_slot}")
 
         if meta_block:
             parts.append("\n".join(meta_block) + f"\nContent:\n{content}")
@@ -1233,6 +1288,48 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
     """
 
     slots = {
+        "programme_description": {
+            "query": (
+                f"{user_request} "
+                "what the programme is about academic focus study content curriculum "
+                "specializations specialization fields of study topics modules "
+                "civil engineering construction infrastructure transport spatial planning "
+                "water management sustainability functionality stability "
+                "what students learn what applicants should expect "
+                "Studieninhalt Schwerpunkt Vertiefung Bauingenieurwesen Verkehr "
+                "Raumplanung Wasserwirtschaft Nachhaltigkeit Konstruktion"
+            ),
+            "keywords": [
+                "what the programme",
+                "academic focus",
+                "study content",
+                "curriculum",
+                "specialization",
+                "specializations",
+                "fields of study",
+                "civil engineering",
+                "construction",
+                "infrastructure",
+                "transport",
+                "spatial planning",
+                "water management",
+                "sustainability",
+                "functionality",
+                "stability",
+                "important aspects",
+                "typical fields of application",
+                "studieninhalt",
+                "schwerpunkt",
+                "vertiefung",
+                "bauingenieurwesen",
+                "verkehr",
+                "raumplanung",
+                "wasserwirtschaft",
+                "nachhaltigkeit",
+            ],
+            "preferred_source_types": ["program_page"],
+            "min_score": 4,
+        },
         "programme_facts": {
             "query": (
                 f"{user_request} "
@@ -1855,47 +1952,70 @@ def build_programme_overview(user_request, vectorstore, llm):
     prompt = f"""
 You are an expert university admission assistant.
 
-Use ONLY the document context below.
-Create a concise applicant-facing overview.
-Do not invent missing facts.
+Use ONLY the provided context.
+Write in {response_language}.
+Do not invent facts.
 
-Write the answer in {response_language}.
+Create a useful applicant-facing overview.
 
-Use this exact structure:
+Structure:
 
-Programme
-- Name:
+## Programme narrative
+Explain in 3-4 short sentences what this programme is about, using the programme_description context if available.
+Mention academic focus areas or study themes only if they are present in the provided context.
+Use cautious wording if you interpret.
+
+
+## Key facts
+- Programme:
 - Degree:
 - Duration:
 - ECTS:
 - Language:
+- University:
 
-Admission
-- Clearly stated admission facts:
-- Required form or procedure:
+## Admission and requirements
+- Clearly stated requirements:
+- Needed for enrollment:
+- Possible blockers:
 
-Documents
+## Documents and proof
 - Required or mentioned documents:
-- Translation/legalisation rules:
+- Language proof:
+- Internship or pre-study proof:
 
-Deadlines
-- Clearly stated deadlines or application periods:
+## Deadlines
+- Stated dates or periods:
+- Programme-specific deadline:
+- What is missing:
+- Do not list unlabeled date sequences.
+- Only list dates when their meaning is clear.
+- If dates appear without clear labels, summarize them as "general semester/application date tables are present, but exact meaning is unclear."
 
-Missing information
-- Important information not stated in the provided context:
+## Applicant guidance
+- What the applicant should understand:
+- What to check first:
+- Next 3 practical steps:
 
-Next steps
-1. ...
-2. ...
-3. ...
+## Confidence
+- High confidence:
+- Medium confidence:
+- Missing or needs official check:
 
 Rules:
-- If a field is not stated, write "Not stated in the provided context."
-- Prefer concrete values over vague summaries.
-- Keep country-specific rules short and mark them as conditional.
+- If something is not stated, write "Not stated in the provided context."
+- Separate facts from cautious interpretation.
 - Keep the answer practical and easy to scan.
+- Do not return an empty answer.
+- For deadlines, do not list raw date sequences unless the label is clear.
+- If deadline dates are present but their meaning is unclear, say that general date tables are present but the programme-specific deadline is not clearly stated.
+- In the Confidence section, classify only the most important points.
+- High confidence means the fact is clearly stated in the provided context.
+- Medium confidence means it is a cautious interpretation or connected information, but not fully explicit.
+- Missing or needs official check means the information is absent, incomplete, or unclear in the provided context.
+- Keep Programme narrative focused on academic content and programme meaning. Put admission, internship, documents, and deadlines into their own sections.
 
-Document context:
+Context:
 {context}
 
 User request:
@@ -1903,6 +2023,12 @@ User request:
 """
 
     response = llm.invoke(prompt)
+
+    print("DEBUG TOKEN USAGE:")
+    print(response.response_metadata.get("token_usage"))
+    print("DEBUG USAGE METADATA:")
+    print(getattr(response, "usage_metadata", None))
+
     text = response.content.strip()
 
     print("DEBUG OVERVIEW RAW RESPONSE:")
@@ -1916,30 +2042,26 @@ User request:
         )
 
         retry_prompt = f"""
-You are an expert university admission assistant.
+Use ONLY the context below.
+Write in {response_language}.
+Do not invent facts.
+Do not return an empty answer.
 
-Use ONLY the document context below.
-Create a concise applicant-facing overview.
-Do not invent missing facts.
+Write a concise applicant decision brief with these sections:
 
-Write the answer in {response_language}.
+## Programme narrative
+## Key facts
+## Admission and requirements
+## Documents and proof
+## Deadlines
+## Applicant guidance
+## Missing information
 
-Return the answer with these headings:
+Keep it practical.
+Use bullet points.
+If something is missing, say "Not stated in the provided context."
 
-Programme
-Admission
-Documents
-Deadlines
-Missing information
-Next steps
-
-Rules:
-- Keep the answer short and concrete.
-- If something is not stated, write "Not stated in the provided context."
-- Use bullet points.
-- Do not return an empty answer.
-
-Document context:
+Context:
 {context}
 
 User request:
@@ -1947,8 +2069,13 @@ User request:
 """
 
         retry_response = llm.invoke(retry_prompt)
-        text = retry_response.content.strip()
 
+        print("DEBUG RETRY TOKEN USAGE:")
+        print(retry_response.response_metadata.get("token_usage"))
+        print("DEBUG RETRY USAGE METADATA:")
+        print(getattr(retry_response, "usage_metadata", None))
+
+        text = retry_response.content.strip()
         print("DEBUG OVERVIEW RETRY RAW RESPONSE:")
         print(repr(retry_response.content))
         print("DEBUG OVERVIEW RETRY STRIPPED TEXT:")
@@ -1968,30 +2095,45 @@ User request:
 You are an expert university admission assistant.
 
 Use ONLY the document context below.
-Create a concise applicant-facing overview.
-Do not invent missing facts.
+Create a concise applicant-facing decision brief.
+Do not invent facts.
 
 Write the answer in {response_language}.
 
 Use this structure:
 
-Programme
+Programme narrative
+- What this programme appears to be about:
+- Who it may fit:
+
+Key facts
 - Name:
 - Degree:
 - Duration:
 - ECTS:
 - Language:
+- University:
 
-Admission
-- Clearly stated admission facts:
-- Required form or procedure:
+Admission reality
+- Clearly stated requirements:
+- Application/enrollment requirements:
+- Possible blockers:
 
-Documents
+Documents and proof
 - Required or mentioned documents:
+- Language proof:
+- Internship/pre-study proof:
 - Translation/legalisation rules:
 
 Deadlines
-- Clearly stated deadlines or application periods:
+- Clearly stated dates or periods:
+- Programme-specific deadline:
+- General university deadlines:
+
+Applicant interpretation
+- What the applicant should understand:
+- What to check first:
+- What is uncertain:
 
 Missing information
 - Important information not stated in the provided context:
@@ -2002,8 +2144,10 @@ Next steps
 3. ...
 
 Rules:
+- Separate facts from interpretation.
 - If a field is not stated, write "Not stated in the provided context."
-- Prefer concrete values over vague summaries.
+- Use cautious wording for interpretation.
+- Do not invent exact deadlines, accepted certificates, tuition fees, career outcomes, or visa rules.
 - Keep the answer practical and easy to scan.
 
 Document context:
@@ -2014,6 +2158,12 @@ User request:
 """
 
         fallback_response = llm.invoke(fallback_prompt)
+
+        print("DEBUG FALLBACK TOKEN USAGE:")
+        print(fallback_response.response_metadata.get("token_usage"))
+        print("DEBUG FALLBACK USAGE METADATA:")
+        print(getattr(fallback_response, "usage_metadata", None))
+
         text = fallback_response.content.strip()
 
         print("DEBUG OVERVIEW FALLBACK RAW RESPONSE:")
@@ -2025,21 +2175,7 @@ User request:
             sources = fallback_sources
 
     if not text:
-        if response_language == "Russian":
-            text = (
-                "Я нашёл релевантный контекст, но не смог сформировать ответ. "
-                "Попробуй перезапустить запрос или задать вопрос конкретнее про programme facts, admission, documents или deadlines."
-            )
-        elif response_language == "German":
-            text = (
-                "Ich habe relevanten Kontext gefunden, konnte aber keine Antwort generieren. "
-                "Bitte versuche die Anfrage erneut oder frage konkreter zu programme facts, admission, documents oder deadlines."
-            )
-        else:
-            text = (
-                "I found relevant context, but could not generate an answer. "
-                "Please try again or ask more specifically about programme facts, admission, documents, or deadlines."
-            )
+        text = build_emergency_overview_from_docs(results, response_language)
 
     return {
         "mode": "programme_overview",
@@ -2285,7 +2421,7 @@ chunks = splitter.split_documents(docs)
 embeddings = OpenAIEmbeddings()
 vectorstore = FAISS.from_documents(chunks, embeddings)
 
-llm = ChatOpenAI(model="gpt-5.5", temperature=0, max_tokens=900)
+llm = ChatOpenAI(model="gpt-5.5", temperature=0, max_tokens=2000)
 
 
 class QuestionRequest(BaseModel):
