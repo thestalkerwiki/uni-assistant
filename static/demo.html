@@ -189,10 +189,47 @@
     }
 
     .answer {
-      white-space: pre-wrap;
       line-height: 1.65;
       font-size: 15px;
       color: #332c27;
+    }
+
+        .answer h2 {
+      margin: 26px 0 10px;
+      font-size: 18px;
+      line-height: 1.25;
+      color: #3a2418;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eadfd3;
+    }
+
+    .answer h2:first-child {
+      margin-top: 0;
+    }
+
+    .answer p {
+      margin: 0 0 12px;
+      line-height: 1.65;
+    }
+
+    .answer ul,
+    .answer ol {
+      margin: 8px 0 16px 20px;
+      padding: 0;
+    }
+
+    .answer li {
+      margin-bottom: 7px;
+      line-height: 1.55;
+    }
+
+    .answer strong {
+      color: #3a2418;
+      font-weight: 700;
+    }
+
+    .answer-section {
+      margin-bottom: 18px;
     }
 
     .placeholder {
@@ -247,10 +284,262 @@
         font-size: 30px;
       }
     }
+
+          :root {
+      --bg: #12100e;
+      --bg-soft: #191512;
+      --card: #211b17;
+      --card-soft: #2a221d;
+      --border: #3b3028;
+      --border-soft: #4a3a30;
+      --text: #f3e9dd;
+      --muted: #b7a89b;
+      --muted-2: #8f7f72;
+      --accent: #c58a5a;
+      --accent-dark: #9f633b;
+      --accent-soft: rgba(197, 138, 90, 0.14);
+      --danger: #ffb4a8;
+      --danger-bg: #3a1d1a;
+      --danger-border: #7a3830;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(197, 138, 90, 0.10), transparent 32%),
+        radial-gradient(circle at top right, rgba(120, 82, 54, 0.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1180px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+    }
+
+    h1 {
+      color: var(--text);
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent), var(--card);
+      border-color: var(--border);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+    }
+
+        .layout > .card:first-child {
+      position: sticky;
+      top: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .layout > .card:first-child {
+        position: static;
+      }
+    }
+
+    label {
+      color: var(--text);
+    }
+
+    textarea {
+      background: #15110f;
+      border-color: var(--border-soft);
+      color: var(--text);
+    }
+
+    textarea::placeholder {
+      color: var(--muted-2);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .preset-button {
+      background: var(--card-soft);
+      border-color: var(--border-soft);
+      color: var(--muted);
+    }
+
+    .preset-button:hover {
+      background: #332820;
+      border-color: var(--accent-dark);
+      color: var(--text);
+    }
+
+    .preset-button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #170f0a;
+    }
+
+    button {
+      background: var(--accent);
+      color: #170f0a;
+    }
+
+    button:hover {
+      background: #d49b6a;
+    }
+
+    button:disabled {
+      background: #5c4d42;
+      color: #b9aaa0;
+    }
+
+    .hint {
+      color: var(--muted-2);
+    }
+
+    .answer-title {
+      color: var(--text);
+    }
+
+    .mode {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(197, 138, 90, 0.25);
+    }
+
+    .answer {
+      color: var(--text);
+    }
+
+    .answer h2 {
+      color: var(--text);
+      border-bottom-color: var(--border);
+    }
+
+    .answer p,
+    .answer li {
+      color: #eadfd2;
+    }
+
+    .answer strong {
+      color: #fff6ec;
+    }
+
+    .placeholder {
+      color: var(--muted-2);
+    }
+
+    .sources {
+      border-top-color: var(--border);
+    }
+
+    .sources-title {
+      color: var(--text);
+    }
+
+    .source-item {
+      background: var(--card-soft);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .error {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+    }
+
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(197, 138, 90, 0.18), transparent 34%),
+        radial-gradient(circle at 50% 82%, rgba(120, 82, 54, 0.16), transparent 36%),
+        linear-gradient(180deg, #16110e 0%, #0c0a09 100%);
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 0.95s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .intro-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .intro-content {
+      width: min(1120px, 100%);
+      text-align: center;
+      animation: introTextIn 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .intro-eyebrow {
+      margin-bottom: 24px;
+      color: var(--accent);
+      font-size: clamp(13px, 1.4vw, 18px);
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.92;
+    }
+
+    .intro-content h2 {
+      margin: 0 auto;
+      max-width: 1050px;
+      color: var(--text);
+      font-size: clamp(64px, 11vw, 168px);
+      line-height: 0.88;
+      letter-spacing: -0.085em;
+      font-weight: 850;
+      text-wrap: balance;
+    }
+
+    .intro-content p {
+      max-width: 720px;
+      margin: 34px auto 0;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 26px);
+      line-height: 1.45;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+
+    @keyframes introTextIn {
+      from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.985);
+        filter: blur(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
   </style>
 </head>
 
 <body>
+  <div id="introOverlay" class="intro-overlay">
+    <div class="intro-content">
+      <div class="intro-eyebrow">Applicant decision brief</div>
+      <h2>Welcome to Uni-Assist</h2>
+      <p>
+        Official university pages, structured admission guidance, and clear next steps.
+      </p>
+    </div>
+  </div>
   <main class="page">
     <section class="header">
       <div class="eyebrow">Uni Assistant Prototype</div>
@@ -366,6 +655,74 @@ https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anme
       sourcesBlock.style.display = "block";
     }
 
+        function escapeHtml(text) {
+      return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderMarkdownLike(text) {
+      if (!text) {
+        return "<p>No answer returned.</p>";
+      }
+
+      const lines = text.split("\n");
+      let html = "";
+      let inList = false;
+
+      function closeListIfNeeded() {
+        if (inList) {
+          html += "</ul>";
+          inList = false;
+        }
+      }
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+
+        if (!line) {
+          closeListIfNeeded();
+          continue;
+        }
+
+        if (line.startsWith("## ")) {
+          closeListIfNeeded();
+          html += `<h2>${escapeHtml(line.replace(/^##\s+/, ""))}</h2>`;
+          continue;
+        }
+
+        if (line.startsWith("- ")) {
+          if (!inList) {
+            html += "<ul>";
+            inList = true;
+          }
+
+          const item = escapeHtml(line.replace(/^- /, "")).replace(
+            /\*\*(.*?)\*\*/g,
+            "<strong>$1</strong>"
+          );
+
+          html += `<li>${item}</li>`;
+          continue;
+        }
+
+        closeListIfNeeded();
+
+        const paragraph = escapeHtml(line).replace(
+          /\*\*(.*?)\*\*/g,
+          "<strong>$1</strong>"
+        );
+
+        html += `<p>${paragraph}</p>`;
+      }
+
+      closeListIfNeeded();
+      return html;
+    }
+
     async function askAssistant() {
       const urls = getUrls();
       const question = questionInput.value.trim();
@@ -405,7 +762,7 @@ https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anme
 
         modeBlock.textContent = data.mode || "answer";
         answerBlock.className = "answer";
-        answerBlock.textContent = data.answer || "No answer returned.";
+        answerBlock.innerHTML = renderMarkdownLike(data.answer);
         renderSources(data.sources || []);
       } catch (error) {
         modeBlock.textContent = "error";
@@ -417,6 +774,29 @@ https://www.tugraz.at/studium/studieren-an-der-tu-graz/studieninteressierte/anme
         askButton.textContent = "Ask Uni Assistant";
       }
     }
+
+    const introOverlay = document.getElementById("introOverlay");
+
+    let introClosed = false;
+
+    function closeIntro() {
+      if (introClosed) {
+        return;
+      }
+
+      introClosed = true;
+      introOverlay.classList.add("hidden");
+    }
+
+    window.addEventListener("load", () => {
+      setTimeout(closeIntro, 2100);
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !introOverlay.classList.contains("hidden")) {
+        closeIntro();
+      }
+    });
 
     askButton.addEventListener("click", askAssistant);
   </script>
