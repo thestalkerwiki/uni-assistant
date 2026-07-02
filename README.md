@@ -1,26 +1,30 @@
 <p align="center">
-  <img src="static/assets/hero-banner.png" alt="Uni-Assist Hero Banner" width="100%" />
+  <img src="static/assets/readme-cover.png" alt="Uni-Assist README Cover" width="100%" />
 </p>
 
-<p align="center">
-  <img src="static/assets/logo-owl.png" alt="Uni-Assist Logo" width="96" />
+<table>
+  <tr>
+    <td width="96">
+      <img src="static/assets/readme-logo.png" alt="Uni-Assist Logo" width="72" />
+    </td>
+    <td>
+      <h1>Uni-Assist</h1>
+      <strong>Applicant decision brief</strong><br />
+      University admission guidance from official sources.
+    </td>
+  </tr>
+</table>
+
+<p>
+  Uni-Assist is a prototype that transforms official university webpages and documents
+  into structured applicant guidance with facts, missing information, next steps,
+  and source-aware summaries.
 </p>
 
-<h1 align="center">Uni-Assist</h1>
-
-<p align="center">
-  <strong>Applicant decision brief</strong><br/>
-  University admission guidance from official sources.
-</p>
-
-<p align="center">
-  A prototype that transforms official university webpages and documents into structured applicant guidance with facts, missing information, next steps, and source-aware summaries.
-</p>
-
-<p align="center">
-  <a href="YOUR_DEMO_LINK">Demo</a> •
-  <a href="YOUR_GITHUB_LINK">Repository</a> •
-  <a href="#features">Features</a> •
+<p>
+  <a href="YOUR_DEMO_LINK">Demo</a> ·
+  <a href="https://github.com/thestalkerwiki/uni-assistant">Repository</a> ·
+  <a href="#features">Features</a> ·
   <a href="#tech-stack">Tech Stack</a>
 </p>
 
