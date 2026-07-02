@@ -1,3 +1,29 @@
+<p align="center">
+  <img src="assets/hero-banner.png" alt="Uni-Assist Hero Banner" width="100%" />
+</p>
+
+<p align="center">
+  <img src="assets/logo-owl.png" alt="Uni-Assist Logo" width="96" />
+</p>
+
+<h1 align="center">Uni-Assist</h1>
+
+<p align="center">
+  <strong>Applicant decision brief</strong><br/>
+  University admission guidance from official sources.
+</p>
+
+<p align="center">
+  A prototype that transforms official university webpages and documents into structured applicant guidance with facts, missing information, next steps, and source-aware summaries.
+</p>
+
+<p align="center">
+  <a href="YOUR_DEMO_LINK">Demo</a> •
+  <a href="YOUR_GITHUB_LINK">Repository</a> •
+  <a href="#features">Features</a> •
+  <a href="#tech-stack">Tech Stack</a>
+</p>
+
 # Uni Assistant
 
 Uni Assistant is a backend prototype for AI-assisted university admission guidance.
