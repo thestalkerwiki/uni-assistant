@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="assets/hero-banner.png" alt="Uni-Assist Hero Banner" width="100%" />
+  <img src="static/assets/hero-banner.png" alt="Uni-Assist Hero Banner" width="100%" />
 </p>
 
 <p align="center">
-  <img src="assets/logo-owl.png" alt="Uni-Assist Logo" width="96" />
+  <img src="static/assets/logo-owl.png" alt="Uni-Assist Logo" width="96" />
 </p>
 
 <h1 align="center">Uni-Assist</h1>
