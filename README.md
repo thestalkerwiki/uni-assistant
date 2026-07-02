@@ -28,13 +28,16 @@
   <a href="#tech-stack">Tech Stack</a>
 </p>
 
-# Uni Assistant
+# Uni-Assist
 
-Uni Assistant is a backend prototype for AI-assisted university admission guidance.
+Uni-Assist is an AI-assisted university admission guidance prototype.
 
-The project helps future students understand university programmes, admission requirements, deadlines, and study structure based on official sources such as university websites and curriculum documents.
+It helps future students understand university programmes, admission requirements,
+documents, deadlines, and next steps based on official university sources such as
+webpages, curriculum documents, and admission pages.
 
-The long-term idea is to build an assistant for CIS / post-Soviet applicants who want to apply to European universities without fully relying on agencies.
+The long-term idea is to build an assistant for CIS / post-Soviet applicants who want
+to apply to European universities without fully relying on agencies.
 
 ## Project goals
 
@@ -43,7 +46,8 @@ This project currently has two main goals:
 1. to serve as a portfolio project for IT job applications
 2. to become a practical prototype of an AI assistant for university admission guidance
 
-The focus is not only on answering questions, but also on separating official facts, missing information, and practical next steps.
+The focus is not only on answering questions, but also on separating official facts,
+missing information, assumptions, and practical next steps.
 
 ## Current status
 
@@ -52,14 +56,22 @@ This is an early working prototype.
 It is not production-ready, but it already supports:
 
 - PDF-based RAG
-- website ingestion
+- official university webpage ingestion
 - multi-page web ingestion
 - source type classification
-- structured admission guidance
+- slot-based programme overview retrieval
+- structured applicant decision briefs
 - multilingual response handling
 - source-aware answers
+- missing-information handling
+- polished demo UI
+- clickable source links
+- answer mode display
+- README visual presentation assets
 
-## Core features
+## Features
+
+### Backend and retrieval
 
 - FastAPI backend
 - PDF document ingestion
@@ -69,16 +81,54 @@ It is not production-ready, but it already supports:
 - chunking with `RecursiveCharacterTextSplitter`
 - OpenAI embeddings
 - FAISS vector search
-- ChatOpenAI answer generation
 - web vectorstore caching
 - intent-based routing
-- answer mode detection
-- source type classification:
-  - `program_page`
-  - `admission_page`
-  - `deadline_page`
-  - `language_page`
-  - `unknown`
+- source type classification
+- slot-based overview retrieval
+- token usage logging
+- fallback behavior for empty model responses
+
+### Source type classification
+
+The assistant can classify sources into categories such as:
+
+- `program_page`
+- `admission_page`
+- `deadline_page`
+- `language_page`
+- `documents_page`
+- `unknown`
+
+This helps the assistant reason across several official pages instead of treating all
+sources as one undifferentiated text block.
+
+### Applicant guidance
+
+The assistant can produce:
+
+- factual answers
+- evidence summaries
+- programme overview briefs
+- missing information sections
+- practical next steps
+- document-oriented guidance
+- deadline-aware summaries
+- source-aware answers
+
+### Demo UI
+
+The project includes a polished demo interface with:
+
+- Apple-like light product styling
+- Uni-Assist owl logo
+- product bar with author signature
+- welcome intro screen
+- multi-URL input
+- preset question buttons
+- answer mode badge
+- markdown-like answer rendering
+- clickable source cards
+- clean applicant decision brief layout
 
 ## Answer modes
 
@@ -91,7 +141,7 @@ Used for direct factual questions.
 Example:
 
 ```text
-What language is the program taught in?
+What language is the programme taught in?
 ```
 
 The assistant retrieves relevant chunks and returns a short factual answer.
@@ -127,11 +177,29 @@ The assistant returns:
 - missing information
 - practical next steps
 
+### `programme_overview`
+
+Used for applicant-oriented programme summaries.
+
+The assistant attempts to combine information from programme, admission, document,
+and deadline pages into a structured decision brief.
+
+Typical sections include:
+
+- programme narrative
+- key facts
+- admission and requirements
+- documents and proof
+- deadlines
+- missing information
+- applicant guidance
+
 ### `contextual_plan_fallback`
 
 Used when the main structured response fails or returns empty output.
 
-The fallback still answers using the retrieved source context instead of switching to an ungrounded general answer.
+The fallback still answers using the retrieved source context instead of switching to
+an ungrounded general answer.
 
 ## Current architecture
 
@@ -146,9 +214,11 @@ URLs / PDFs
 → FAISS vectorstore
 → retrieval
 → source classification
+→ slot-based context selection
 → prompt routing
 → LLM answer
 → structured response
+→ demo UI rendering
 ```
 
 ## Main endpoints
@@ -177,13 +247,19 @@ Single-page web assistant with routing and structured answer modes.
 
 Multi-page web assistant.
 
-This endpoint accepts several official university URLs and answers questions using all sources together.
+This endpoint accepts several official university URLs and answers questions using all
+sources together.
 
 Example source set:
 
 - programme page
 - admission page
+- document page
 - deadline page
+
+### `/demo`
+
+Serves the polished local demo UI.
 
 ## Example multi-page request
 
@@ -207,25 +283,15 @@ Expected behavior:
 - extract admission facts
 - extract deadlines
 - return missing information and next steps
+- provide clickable source references in the UI
 
 ## Example output structure
 
 ```json
 {
-  "mode": "contextual_plan",
-  "question": "What should I prepare before applying to this Master's programme?",
-  "document_facts": [
-    "The programme is Computational Social Systems.",
-    "The degree is Master of Science (MSc).",
-    "The programme has 120 ECTS.",
-    "The duration is 4 semesters.",
-    "The language of instruction is English."
-  ],
-  "missing_info": [
-    "The exact accepted English language certificates are not stated in the retrieved context.",
-    "The applicant's country-specific document requirements are not known."
-  ],
-  "answer": "1. Check whether your previous degree is relevant for the programme.\n2. Prepare the admission application documents.\n3. Check the correct deadline category.\n4. Prepare documents in the required language or format.",
+  "mode": "programme_overview",
+  "question": "What should an applicant know about this programme?",
+  "answer": "## Programme narrative\n...\n\n## Key facts\n...\n\n## Admission and requirements\n...",
   "sources": [
     "programme page URL",
     "admission page URL",
@@ -254,19 +320,22 @@ University information is often split across several pages.
 
 For example:
 
-- programme page: degree, ECTS, duration, language
-- admission page: procedure, documents, applicant categories
-- deadline page: application periods and deadlines
+- programme page: degree, ECTS, duration, language, study content
+- admission page: procedure, requirements, applicant categories
+- document page: required proof, certificates, forms
+- deadline page: application periods and enrolment dates
 
-Source type classification helps the assistant understand where each piece of information comes from and prepares the project for future conflict handling between sources.
+Source type classification helps the assistant understand where each piece of information
+comes from and prepares the project for future conflict handling between sources.
 
 ## Current limitations
 
 - not deployed yet
-- no frontend yet
 - no user accounts or persistence
 - no applicant profile yet
-- no source-balanced retrieval yet
+- no saved application workspace yet
+- no source conflict resolution yet
+- no full document checklist extraction yet
 - some pages still contain navigation noise
 - some answers may still miss available facts if retrieval does not select the right chunks
 - not production-ready
@@ -275,12 +344,13 @@ Source type classification helps the assistant understand where each piece of in
 
 Planned improvements:
 
-- source-balanced retrieval across programme, admission, and deadline pages
-- applicant profile
-- conflict detection between official sources
-- document checklist extraction
-- simple demo UI
-- short GIF / MP4 demo for portfolio
+- testing across different university websites
+- improve answer informativeness and narrative programme context
+- improve source-balanced retrieval across programme, admission, document, and deadline pages
+- add conflict detection between official sources
+- improve document checklist extraction
+- add applicant profile support
+- prepare short GIF / MP4 demo for portfolio
 - later: user workspace and saved application roadmap
 
 ## Tech stack
@@ -292,6 +362,9 @@ Planned improvements:
 - OpenAI API
 - Pydantic
 - BeautifulSoup / bs4
+- HTML
+- CSS
+- JavaScript
 
 ## Project motivation
 
@@ -303,12 +376,8 @@ The main goals are:
 - clear distinction between facts and assumptions
 - practical guidance for applicants
 - reduction of information chaos
-<<<<<<< HEAD
+- source-aware applicant decision support
 - step-by-step development of a useful assistant
-=======
-- step-by-step development of a useful assistant
->>>>>>> feature/multi-page-ingestion
-
 
 ## License
 
