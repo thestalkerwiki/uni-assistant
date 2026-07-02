@@ -278,3 +278,11 @@ The main goals are:
 =======
 - step-by-step development of a useful assistant
 >>>>>>> feature/multi-page-ingestion
+
+
+## License
+
+This project is currently shared as a portfolio prototype.
+
+Copyright © 2026 Eldar Kyzbikenov.  
+All rights reserved unless a separate license is provided.
