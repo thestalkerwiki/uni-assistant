@@ -60,6 +60,22 @@ def is_factual_question(query: str) -> bool:
 def detect_answer_mode(query: str) -> str:
     lowered = query.lower().strip()
 
+    if "суммируй" in lowered and any(
+        word in lowered
+        for word in [
+            "программ",
+            "поступлен",
+            "срок",
+            "документ",
+            "требован",
+            "абитуриент",
+            "день теста",
+            "язык",
+            "следующие шаги",
+        ]
+    ):
+        return "guidance_plan"
+
     if any(
         phrase in lowered
         for phrase in [
@@ -97,6 +113,18 @@ def detect_answer_mode(query: str) -> str:
             "что подготовить",
             "как поступить",
             "чтобы поступить",
+            "что должен знать абитуриент",
+            "что нужно знать абитуриенту",
+            "что должен знать поступающий",
+            "что нужно знать поступающему",
+            "суммируй факты о программе",
+            "суммируй программу",
+            "обзор программы",
+            "обзор для абитуриента",
+            "сделай обзор программы",
+            "сделай обзор для абитуриента",
+            "перед поступлением на",
+            "перед подачей на",
             # German
             "was sollte ein bewerber wissen",
             "was sollte eine bewerberin wissen",
@@ -171,6 +199,17 @@ def detect_query_intent(query: str) -> str:
             "fasse diesen studiengang zusammen",
             "was sollte ein bewerber wissen",
             "was sollte eine bewerberin wissen",
+            # Russian
+            "что должен знать абитуриент",
+            "что нужно знать абитуриенту",
+            "что должен знать поступающий",
+            "что нужно знать поступающему",
+            "суммируй факты о программе",
+            "суммируй программу",
+            "обзор программы",
+            "обзор для абитуриента",
+            "сделай обзор программы",
+            "сделай обзор для абитуриента",
         ]
     ):
         return "overview"
@@ -197,6 +236,22 @@ def detect_query_intent(query: str) -> str:
         ]
     ):
         return "language"
+
+    if "суммируй" in lowered and any(
+        word in lowered
+        for word in [
+            "программ",
+            "поступлен",
+            "срок",
+            "документ",
+            "требован",
+            "абитуриент",
+            "день теста",
+            "язык",
+            "следующие шаги",
+        ]
+    ):
+        return "overview"
 
     if any(
         word in lowered
@@ -347,6 +402,10 @@ def detect_query_intent(query: str) -> str:
     return "general"
 
 
+def contains_cyrillic(text: str) -> bool:
+    return any("а" <= char.lower() <= "я" or char.lower() == "ё" for char in text)
+
+
 def detect_response_language(query: str) -> str:
     lowered = query.lower()
 
@@ -378,6 +437,54 @@ def detect_response_language(query: str) -> str:
         return "German"
 
     return "English"
+
+
+def localize_answer_if_needed(answer: str, target_language: str, llm) -> str:
+    if target_language != "Russian":
+        return answer
+
+    if contains_cyrillic(answer):
+        return answer
+
+    prompt = f"""
+You are a careful Russian-language editor for a university admission assistant.
+
+Your task is to translate and adapt the answer into natural Russian.
+
+Rules:
+- Preserve all facts, numbers, dates, deadlines, programme names, URLs, ECTS values, and official terms.
+- Do not add new facts.
+- Do not remove uncertainty or missing-information warnings.
+- Keep the same structure and headings.
+- Keep official German/English terms in parentheses when useful.
+- Translate naturally, not literally.
+- Use clear Russian for CIS / post-Soviet applicants.
+- Do not make the answer sound like marketing.
+- Do not change the meaning of "alternative accepted proof" into "mandatory requirement".
+
+Important terminology:
+- admission procedure / Aufnahmeverfahren → процедура поступления / вступительный отбор
+- test day / Testtag → день вступительного теста
+- deadline / Frist → срок
+- admission period / Zulassungsfrist → период зачисления / период допуска
+- application period / Antragsfrist → период подачи заявления
+- German language skills / Deutschkenntnisse → знание немецкого языка
+- school-leaving certificate / Reifezeugnis → аттестат о среднем образовании
+- list of subjects / Stundentafel → список предметов / приложение с предметами
+- legalisation / Beglaubigung → заверение / легализация документов
+- non-EU/EWR applicant → абитуриент из страны вне EU/EWR
+
+Answer to localize:
+{answer}
+"""
+
+    response = llm.invoke(prompt)
+    localized = response.content.strip()
+
+    if not localized:
+        return answer
+
+    return localized
 
 
 def build_retrieval_query(user_query: str) -> str:
@@ -723,12 +830,32 @@ def classify_source_type(url: str, text: str) -> str:
             "deadlines",
             "dates-and-deadlines",
             "termine-fristen",
+            "fristen-und-termine",
+            "fristen",
+            "termine",
+            "application-period",
+            "application-deadlines",
+            "admission-period",
             "semestertermine",
             "semester-dates",
             "term-dates",
         ]
     ):
         return "deadline_page"
+
+    if any(
+        marker in lowered_url
+        for marker in [
+            "testtag",
+            "test-day",
+            "entrance-test",
+            "aufnahmepruefung",
+            "aufnahmeprüfung",
+            "eignungstest",
+            "written-test",
+        ]
+    ):
+        return "test_day_page"
 
     if any(
         marker in lowered_url
@@ -1026,14 +1153,13 @@ def build_emergency_overview_from_docs(results, response_language: str) -> str:
     lines = []
 
     if response_language == "Russian":
-        lines.append("## Programme overview")
+        lines.append("## Обзор программы")
         lines.append("")
         lines.append(
-            "I found relevant university information, but the AI model did not generate a full narrative response."
+            "Я нашёл релевантную информацию из университетских источников, "
+            "но модель не смогла сформировать полноценный связный ответ."
         )
-        lines.append(
-            "Here is a safe evidence-based summary from the retrieved sources:"
-        )
+        lines.append("Ниже — безопасная краткая сводка по найденным фрагментам:")
     else:
         lines.append("## Programme overview")
         lines.append("")
@@ -1070,6 +1196,19 @@ def build_emergency_overview_from_docs(results, response_language: str) -> str:
     lines.append(
         "3. Prepare stated documents and language proof before applying or enrolling."
     )
+    if response_language == "Russian":
+        lines.append("## Следующие шаги")
+        lines.append(
+            "1. Проверьте официальную страницу программы для финальных деталей поступления."
+        )
+        lines.append(
+            "2. Проверьте сроки подачи заявления и зачисления на сайте университета."
+        )
+        lines.append(
+            "3. Подготовьте указанные документы и подтверждение языка до подачи заявления."
+        )
+    else:
+        lines.append("## Next steps")
 
     return "\n".join(lines).strip()
 
@@ -1194,6 +1333,15 @@ def score_doc_for_source_type(doc, source_type: str) -> int:
             "residence permit",
             "start studying in germany",
         ],
+        "test_day_page": [
+            "test day",
+            "entrance test",
+            "aufnahmeprüfung",
+            "eignungstest",
+            "written test",
+            "testtag",
+            "aufnahmetest",
+        ],
     }
 
     keywords = keywords_by_source_type.get(source_type, [])
@@ -1257,8 +1405,11 @@ def score_doc_for_overview_slot(
             score += 2
 
     # Prefer chunks from suitable page types.
-    if source_type in preferred_source_types:
-        score += 5
+    if preferred_source_types:
+        if source_type == preferred_source_types[0]:
+            score += 7
+        elif source_type in preferred_source_types:
+            score += 4
 
     # Penalize likely navigation/menu chunks.
     navigation_markers = [
@@ -1382,10 +1533,10 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
                 "zulassungsvoraussetzungen",
                 "zugangsvoraussetzungen",
             ],
-            "preferred_source_types": ["program_page", "admission_page"],
+            "preferred_source_types": ["admission_page", "program_page"],
             "min_score": 4,
         },
-        "english_requirements": {
+        "language_requirements": {
             "query": (
                 f"{user_request} "
                 "language requirements language proficiency German English IELTS TOEFL CEFR "
@@ -1460,6 +1611,43 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
             ],
             "preferred_source_types": ["fees_page"],
             "min_score": 6,
+        },
+        "test_day": {
+            "query": (
+                f"{user_request} "
+                "test day entrance test written test admission test aptitude test "
+                "test location test confirmation allowed items prohibited items "
+                "no replacement dates late arrival excluded from procedure "
+                "Testtag schriftlicher Test Aufnahmeprüfung Eignungstest "
+                "Einlassbestätigung erlaubte Gegenstände verbotene Gegenstände "
+                "keine Ersatztermine zu spät ausgeschlossen VIECON"
+            ),
+            "keywords": [
+                "test day",
+                "entrance test",
+                "written test",
+                "admission test",
+                "aptitude test",
+                "test location",
+                "allowed items",
+                "prohibited items",
+                "no replacement dates",
+                "late arrival",
+                "excluded",
+                "testtag",
+                "schriftlicher test",
+                "aufnahmeprüfung",
+                "eignungstest",
+                "einlassbestätigung",
+                "erlaubte gegenstände",
+                "verbotene gegenstände",
+                "keine ersatztermine",
+                "zu spät",
+                "ausgeschlossen",
+                "viecon",
+            ],
+            "preferred_source_types": ["test_day_page", "admission_page"],
+            "min_score": 4,
         },
         "deadlines": {
             "query": (
@@ -1601,6 +1789,7 @@ def balanced_similarity_search(
             ("program_page", 2),
             ("admission_page", 2),
             ("deadline_page", 1),
+            ("test_day_page", 1),
             ("language_page", 1),
             ("fees_page", 1),
             ("visa_page", 1),
@@ -1668,6 +1857,14 @@ def balanced_similarity_search(
         "visa_page": (
             "student visa visa guide acceptance letter embassy consulate Germany "
             "international student visa residence permit application documents"
+        ),
+        "test_day_page": (
+            "test day entrance test written test admission test aptitude test "
+            "test location test confirmation allowed items prohibited items "
+            "no replacement dates late arrival excluded from procedure "
+            "Testtag schriftlicher Test Aufnahmeprüfung Eignungstest "
+            "Einlassbestätigung erlaubte Gegenstände verbotene Gegenstände "
+            "keine Ersatztermine zu spät ausgeschlossen VIECON"
         ),
     }
 
@@ -1933,7 +2130,7 @@ MISSING_INFO:
     }
 
 
-def build_programme_overview(user_request, vectorstore, llm):
+def build_programme_overview(user_request, vectorstore, llm, provided_urls=None):
     response_language = detect_response_language(user_request)
 
     results = retrieve_programme_overview_context(
@@ -1947,7 +2144,7 @@ def build_programme_overview(user_request, vectorstore, llm):
         )
 
     context = build_context_from_docs(results)
-    sources = extract_sources(results)
+    provided_urls = provided_urls or []
 
     prompt = f"""
 You are an expert university admission assistant.
@@ -1955,16 +2152,15 @@ You are an expert university admission assistant.
 Use ONLY the provided context.
 Write in {response_language}.
 Do not invent facts.
+Do not return an empty answer.
 
-Create a useful applicant-facing overview.
+Create a practical applicant decision brief.
 
-Structure:
+Use this structure:
 
 ## Programme narrative
-Explain in 3-4 short sentences what this programme is about, using the programme_description context if available.
-Mention academic focus areas or study themes only if they are present in the provided context.
-Use cautious wording if you interpret.
-
+- What the programme/procedure is about:
+- Who this information is relevant for:
 
 ## Key facts
 - Programme:
@@ -1973,47 +2169,46 @@ Use cautious wording if you interpret.
 - ECTS:
 - Language:
 - University:
+- Admission procedure:
 
 ## Admission and requirements
 - Clearly stated requirements:
-- Needed for enrollment:
+- Important applicant-category notes:
 - Possible blockers:
 
 ## Documents and proof
-- Required or mentioned documents:
+- Mandatory or generally required documents:
+- Alternative accepted proofs:
 - Language proof:
-- Internship or pre-study proof:
+- Translation / legalisation:
 
 ## Deadlines
-- Stated dates or periods:
-- Programme-specific deadline:
+- Application period:
+- Admission/enrollment period:
+- Programme-specific dates:
+
+## Test day / admission test
+- Test date or location:
+- Rules clearly stated:
+- What the applicant must bring:
 - What is missing:
-- Do not list unlabeled date sequences.
-- Only list dates when their meaning is clear.
-- If dates appear without clear labels, summarize them as "general semester/application date tables are present, but exact meaning is unclear."
 
 ## Applicant guidance
 - What the applicant should understand:
-- What to check first:
-- Next 3 practical steps:
+- Next practical steps:
 
-## Confidence
-- High confidence:
-- Medium confidence:
-- Missing or needs official check:
+## Missing information
+- Important information not stated in the provided context:
 
 Rules:
+- Separate facts from interpretation.
 - If something is not stated, write "Not stated in the provided context."
-- Separate facts from cautious interpretation.
+- Do not present alternative accepted proofs as mandatory requirements.
+- A completed Bachelor degree may be an alternative accepted proof for Bachelor/Diploma admission, not a standard requirement, unless explicitly stated.
+- Keep official German/English terms when useful.
 - Keep the answer practical and easy to scan.
-- Do not return an empty answer.
-- For deadlines, do not list raw date sequences unless the label is clear.
-- If deadline dates are present but their meaning is unclear, say that general date tables are present but the programme-specific deadline is not clearly stated.
-- In the Confidence section, classify only the most important points.
-- High confidence means the fact is clearly stated in the provided context.
-- Medium confidence means it is a cautious interpretation or connected information, but not fully explicit.
-- Missing or needs official check means the information is absent, incomplete, or unclear in the provided context.
-- Keep Programme narrative focused on academic content and programme meaning. Put admission, internship, documents, and deadlines into their own sections.
+- Prefer concrete facts: dates, ECTS, duration, degree, language, costs, test date, required proof.
+- Do not include a separate Confidence section.
 
 Context:
 {context}
@@ -2121,9 +2316,11 @@ Admission reality
 
 Documents and proof
 - Required or mentioned documents:
+- Required or mentioned documents:
+- Alternative accepted proofs:
 - Language proof:
-- Internship/pre-study proof:
-- Translation/legalisation rules:
+- Translation / legalisation:
+- Internship or pre-study proof:
 
 Deadlines
 - Clearly stated dates or periods:
@@ -2149,6 +2346,12 @@ Rules:
 - Use cautious wording for interpretation.
 - Do not invent exact deadlines, accepted certificates, tuition fees, career outcomes, or visa rules.
 - Keep the answer practical and easy to scan.
+- Do not present alternative accepted proofs as mandatory requirements.
+- If the context lists several accepted proofs for admission, clearly label them as alternatives.
+- For Bachelor/Diploma admission, a completed Bachelor degree may be an alternative proof, not a standard requirement, unless the context explicitly says it is required.
+- In "Required or mentioned documents", separate mandatory documents from alternative accepted proofs.
+- Use "may be accepted as alternative proof" for alternative educational qualifications.
+- Never write that a Bachelor degree is required for Bachelor admission unless the context explicitly says "required".
 
 Document context:
 {fallback_context}
@@ -2177,11 +2380,20 @@ User request:
     if not text:
         text = build_emergency_overview_from_docs(results, response_language)
 
+    text = localize_answer_if_needed(
+        answer=text,
+        target_language=response_language,
+        llm=llm,
+    )
+
+    retrieved_sources = extract_sources(results)
+    all_sources = list(dict.fromkeys(retrieved_sources + provided_urls))
+
     return {
         "mode": "programme_overview",
         "question": user_request,
         "answer": text,
-        "sources": sources,
+        "sources": all_sources,
     }
 
 
@@ -2641,7 +2853,12 @@ def web_multi_assistant(request: WebMultiQuestionRequest):
     if answer_mode == "guidance_plan":
         if intent == "overview":
             print("DEBUG web multi route: programme_overview")
-            return build_programme_overview(query, web_vectorstore, llm)
+            return build_programme_overview(
+                query,
+                web_vectorstore,
+                llm,
+                provided_urls=normalize_urls(request.urls),
+            )
 
         print("DEBUG web multi route: contextual_plan")
         return build_contextual_plan(query, web_vectorstore, llm)
