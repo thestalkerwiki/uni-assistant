@@ -2633,7 +2633,7 @@ chunks = splitter.split_documents(docs)
 embeddings = OpenAIEmbeddings()
 vectorstore = FAISS.from_documents(chunks, embeddings)
 
-llm = ChatOpenAI(model="gpt-5.5", temperature=0, max_tokens=2000)
+llm = ChatOpenAI(model="gpt-5.5", temperature=0, max_tokens=3000)
 
 
 class QuestionRequest(BaseModel):
