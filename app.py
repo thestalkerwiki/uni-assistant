@@ -499,6 +499,8 @@ def build_retrieval_query(user_query: str) -> str:
             "studiengang studium studiendauer ects-anrechnungspunkte abschluss "
             "unterrichtssprache zulassung voraussetzungen erforderliche unterlagen "
             "ansuchen um zulassung zulassungsfristen bewerbungsfrist"
+            "admission procedure cost fee places capacity test duration "
+            "Kostenbeitrag Studienplätze Plätze Stunden Testdauer Testliteratur Beispielaufgaben "
         )
 
     if intent == "documents":
@@ -547,6 +549,20 @@ def build_retrieval_query(user_query: str) -> str:
             "curriculum 180 ects six semesters study duration "
             "required subjects guided electives minors bachelor thesis "
             "steop recommended study flow mobility window semester plan"
+        )
+
+    if intent == "overview":
+        return (
+            f"{user_query} "
+            "programme facts program facts degree ects duration language of instruction "
+            "admission requirements required documents application form deadlines "
+            "language requirements missing information next steps "
+            "admission procedure cost fee places capacity test duration "
+            "studiengang studium studiendauer ects-anrechnungspunkte abschluss "
+            "unterrichtssprache zulassung voraussetzungen erforderliche unterlagen "
+            "ansuchen um zulassung zulassungsfristen bewerbungsfrist "
+            "aufnahmeverfahren kostenbeitrag studienplätze plätze stunden testdauer "
+            "testliteratur beispielaufgaben"
         )
 
     return user_query
@@ -1188,14 +1204,6 @@ def build_emergency_overview_from_docs(results, response_language: str) -> str:
         lines.append(f"- Evidence: {preview}...")
         lines.append("")
 
-    lines.append("## Next steps")
-    lines.append("1. Check the official programme page for final admission details.")
-    lines.append(
-        "2. Verify application and enrollment deadlines on the university website."
-    )
-    lines.append(
-        "3. Prepare stated documents and language proof before applying or enrolling."
-    )
     if response_language == "Russian":
         lines.append("## Следующие шаги")
         lines.append(
@@ -1209,8 +1217,69 @@ def build_emergency_overview_from_docs(results, response_language: str) -> str:
         )
     else:
         lines.append("## Next steps")
+        lines.append(
+            "1. Check the official programme page for final admission details."
+        )
+        lines.append(
+            "2. Verify application and enrollment deadlines on the university website."
+        )
+        lines.append(
+            "3. Prepare stated documents and language proof before applying or enrolling."
+        )
 
     return "\n".join(lines).strip()
+
+
+def extract_admission_card_facts(results) -> str:
+    facts = []
+
+    for doc in results:
+        metadata = doc.metadata or {}
+        slot = metadata.get("overview_slot", "")
+        text = doc.page_content
+
+        if slot != "admission_procedure_facts":
+            continue
+
+        # Fee: 50 Euro Kostenbeitrag
+        fee_match = re.search(
+            r"(\d+(?:[,.]\d+)?)\s*Euro\s+Kostenbeitrag",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if fee_match:
+            facts.append(f"- Cost / fee: {fee_match.group(1)} Euro Kostenbeitrag")
+
+        # Test duration: 2,5 Stunden / 2.5 Stunden
+        duration_match = re.search(
+            r"(\d+(?:[,.]\d+)?)\s*Stunden",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if duration_match:
+            facts.append(f"- Test duration: {duration_match.group(1)} Stunden")
+
+        # Pattern: Kostenbeitrag 485 2,5 Stunden
+        unlabeled_match = re.search(
+            r"Kostenbeitrag\s+(\d{2,5})\s+\d+(?:[,.]\d+)?\s*Stunden",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if unlabeled_match:
+            facts.append(
+                "- Unlabeled admission-card number: "
+                f"{unlabeled_match.group(1)}. "
+                "It appears between the fee and test duration in the extracted admission overview. "
+                "It may indicate places/capacity, but the label is not visible in the extracted text."
+            )
+
+    if not facts:
+        return ""
+
+    return "Extracted admission card facts:\n" + "\n".join(facts)
 
 
 def build_context_from_docs(results):
@@ -1702,6 +1771,43 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
             "preferred_source_types": ["visa_page"],
             "min_score": 7,
         },
+        "admission_procedure_facts": {
+            "query": (
+                f"{user_request} "
+                "admission procedure entrance procedure application period test date "
+                "cost fee contribution places capacity test duration preparation material "
+                "Aufnahmeverfahren Eignungsverfahren Antragsfrist Testtermin "
+                "Kostenbeitrag Plätze Studienplätze Stunden Testdauer "
+                "Testliteratur Beispielaufgaben vor Ort in Wien Ersatztermine"
+            ),
+            "keywords": [
+                "aufnahmeverfahren",
+                "eignungsverfahren",
+                "antragsfrist",
+                "testtermin",
+                "vor ort in wien",
+                "ersatztermine",
+                "kostenbeitrag",
+                "euro",
+                "plätze",
+                "studienplätze",
+                "kapazität",
+                "stunden",
+                "testdauer",
+                "testliteratur",
+                "beispielaufgaben",
+                "schriftlicher test",
+                "application period",
+                "test date",
+                "cost",
+                "fee",
+                "places",
+                "capacity",
+                "test duration",
+            ],
+            "preferred_source_types": ["program_page", "admission_page"],
+            "min_score": 2,
+        },
     }
 
     selected = []
@@ -2132,34 +2238,43 @@ MISSING_INFO:
 
 def build_programme_overview(user_request, vectorstore, llm, provided_urls=None):
     response_language = detect_response_language(user_request)
+    provided_urls = provided_urls or []
 
     results = retrieve_programme_overview_context(
-        vectorstore=vectorstore, user_request=user_request
+        vectorstore=vectorstore,
+        user_request=user_request,
     )
 
     if len(results) < 4:
         print("DEBUG overview fallback: slot retrieval returned too little context")
         results = balanced_similarity_search(
-            vectorstore=vectorstore, query=user_request, intent="overview", default_k=4
+            vectorstore=vectorstore,
+            query=user_request,
+            intent="overview",
+            default_k=5,
         )
 
     context = build_context_from_docs(results)
-    provided_urls = provided_urls or []
+
+    admission_card_facts = extract_admission_card_facts(results)
+
+    if admission_card_facts:
+        context = admission_card_facts + "\n\n---\n\n" + context
 
     prompt = f"""
-You are an expert university admission assistant.
+You are Uni-Assist, a source-grounded university admission assistant.
 
 Use ONLY the provided context.
 Write in {response_language}.
 Do not invent facts.
 Do not return an empty answer.
 
-Create a practical applicant decision brief.
+Create a practical applicant overview for the user's question.
 
 Use this structure:
 
-## Programme narrative
-- What the programme/procedure is about:
+## Programme overview
+- What this programme or admission procedure is about:
 - Who this information is relevant for:
 
 ## Key facts
@@ -2170,14 +2285,26 @@ Use this structure:
 - Language:
 - University:
 - Admission procedure:
+- Places / capacity:
+- Cost / fee:
+- Test duration:
 
-## Admission and requirements
+## Admission procedure facts
+- Application period:
+- Test date:
+- Cost / fee:
+- Places / capacity:
+- Test duration:
+- Preparation material:
+- Places / capacity or unlabeled admission-card number:
+
+## Admission requirements
 - Clearly stated requirements:
-- Important applicant-category notes:
+- Applicant-category notes:
 - Possible blockers:
 
 ## Documents and proof
-- Mandatory or generally required documents:
+- Required or generally required documents:
 - Alternative accepted proofs:
 - Language proof:
 - Translation / legalisation:
@@ -2187,28 +2314,32 @@ Use this structure:
 - Admission/enrollment period:
 - Programme-specific dates:
 
-## Test day / admission test
+## Test day
 - Test date or location:
-- Rules clearly stated:
-- What the applicant must bring:
-- What is missing:
-
-## Applicant guidance
-- What the applicant should understand:
-- Next practical steps:
+- Important rules:
+- What the applicant should prepare:
 
 ## Missing information
 - Important information not stated in the provided context:
+- Do not say a value is missing if it appears in the context with a clear label.
+
+## Next steps
+1. ...
+2. ...
+3. ...
 
 Rules:
-- Separate facts from interpretation.
+- Keep the answer concise but informative.
+- Prefer concrete facts: dates, ECTS, duration, degree, language, costs, test date, document proof.
+- Separate official facts from interpretation.
 - If something is not stated, write "Not stated in the provided context."
 - Do not present alternative accepted proofs as mandatory requirements.
 - A completed Bachelor degree may be an alternative accepted proof for Bachelor/Diploma admission, not a standard requirement, unless explicitly stated.
-- Keep official German/English terms when useful.
-- Keep the answer practical and easy to scan.
-- Prefer concrete facts: dates, ECTS, duration, degree, language, costs, test date, required proof.
-- Do not include a separate Confidence section.
+- Keep official German/English terms when useful, especially programme names, ECTS, Aufnahmeverfahren, Zulassung, Antragsfrist, Testtag.
+- For Russian answers, use natural Russian for CIS / post-Soviet applicants.
+- If the context contains standalone numbers near admission/test information, include them cautiously with their visible label.
+- If a value appears with a clear label such as Kostenbeitrag, Studienplätze, Plätze, or Stunden, do not list it as missing.
+- If a number has no clear label, say that its meaning is unclear instead of using it as a fact.
 
 Context:
 {context}
@@ -2232,9 +2363,7 @@ User request:
     print(repr(text))
 
     if not text:
-        print(
-            "DEBUG overview retry: empty LLM response, retrying with same slot context"
-        )
+        print("DEBUG overview retry: empty LLM response, using compact retry prompt")
 
         retry_prompt = f"""
 Use ONLY the context below.
@@ -2242,19 +2371,25 @@ Write in {response_language}.
 Do not invent facts.
 Do not return an empty answer.
 
-Write a concise applicant decision brief with these sections:
+Write a compact applicant brief with these sections:
 
-## Programme narrative
+## Programme overview
 ## Key facts
-## Admission and requirements
+## Admission requirements
 ## Documents and proof
 ## Deadlines
-## Applicant guidance
+## Test day
 ## Missing information
+## Next steps
 
-Keep it practical.
-Use bullet points.
-If something is missing, say "Not stated in the provided context."
+Rules:
+- Use bullet points.
+- Include concrete facts: dates, ECTS, degree, duration, language, test date, costs, required proof.
+- If something is missing, write "Not stated in the provided context."
+- Do not present alternative accepted proofs as mandatory requirements.
+- Keep official terms when useful.
+- If an extracted admission-card number is marked as unlabeled, mention it cautiously.
+- Do not confidently label an unlabeled number as places/capacity unless the label is visible.
 
 Context:
 {context}
@@ -2271,113 +2406,14 @@ User request:
         print(getattr(retry_response, "usage_metadata", None))
 
         text = retry_response.content.strip()
+
         print("DEBUG OVERVIEW RETRY RAW RESPONSE:")
         print(repr(retry_response.content))
         print("DEBUG OVERVIEW RETRY STRIPPED TEXT:")
         print(repr(text))
 
     if not text:
-        print("DEBUG overview fallback: retry also empty, using balanced retrieval")
-
-        fallback_results = balanced_similarity_search(
-            vectorstore=vectorstore, query=user_request, intent="overview", default_k=4
-        )
-
-        fallback_context = build_context_from_docs(fallback_results)
-        fallback_sources = extract_sources(fallback_results)
-
-        fallback_prompt = f"""
-You are an expert university admission assistant.
-
-Use ONLY the document context below.
-Create a concise applicant-facing decision brief.
-Do not invent facts.
-
-Write the answer in {response_language}.
-
-Use this structure:
-
-Programme narrative
-- What this programme appears to be about:
-- Who it may fit:
-
-Key facts
-- Name:
-- Degree:
-- Duration:
-- ECTS:
-- Language:
-- University:
-
-Admission reality
-- Clearly stated requirements:
-- Application/enrollment requirements:
-- Possible blockers:
-
-Documents and proof
-- Required or mentioned documents:
-- Required or mentioned documents:
-- Alternative accepted proofs:
-- Language proof:
-- Translation / legalisation:
-- Internship or pre-study proof:
-
-Deadlines
-- Clearly stated dates or periods:
-- Programme-specific deadline:
-- General university deadlines:
-
-Applicant interpretation
-- What the applicant should understand:
-- What to check first:
-- What is uncertain:
-
-Missing information
-- Important information not stated in the provided context:
-
-Next steps
-1. ...
-2. ...
-3. ...
-
-Rules:
-- Separate facts from interpretation.
-- If a field is not stated, write "Not stated in the provided context."
-- Use cautious wording for interpretation.
-- Do not invent exact deadlines, accepted certificates, tuition fees, career outcomes, or visa rules.
-- Keep the answer practical and easy to scan.
-- Do not present alternative accepted proofs as mandatory requirements.
-- If the context lists several accepted proofs for admission, clearly label them as alternatives.
-- For Bachelor/Diploma admission, a completed Bachelor degree may be an alternative proof, not a standard requirement, unless the context explicitly says it is required.
-- In "Required or mentioned documents", separate mandatory documents from alternative accepted proofs.
-- Use "may be accepted as alternative proof" for alternative educational qualifications.
-- Never write that a Bachelor degree is required for Bachelor admission unless the context explicitly says "required".
-
-Document context:
-{fallback_context}
-
-User request:
-{user_request}
-"""
-
-        fallback_response = llm.invoke(fallback_prompt)
-
-        print("DEBUG FALLBACK TOKEN USAGE:")
-        print(fallback_response.response_metadata.get("token_usage"))
-        print("DEBUG FALLBACK USAGE METADATA:")
-        print(getattr(fallback_response, "usage_metadata", None))
-
-        text = fallback_response.content.strip()
-
-        print("DEBUG OVERVIEW FALLBACK RAW RESPONSE:")
-        print(repr(fallback_response.content))
-        print("DEBUG OVERVIEW FALLBACK STRIPPED TEXT:")
-        print(repr(text))
-
-        if text:
-            sources = fallback_sources
-
-    if not text:
+        print("DEBUG overview emergency fallback: building answer from selected docs")
         text = build_emergency_overview_from_docs(results, response_language)
 
     text = localize_answer_if_needed(
