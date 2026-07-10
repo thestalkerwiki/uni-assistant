@@ -1457,30 +1457,36 @@ def search_by_source_type(
     return selected
 
 
+def count_keyword_hits(text: str, keywords: list[str]) -> int:
+    lowered = text.lower()
+    return sum(1 for keyword in keywords if keyword.lower() in lowered)
+
+
 def score_doc_for_overview_slot(
     doc, slot_name: str, slot_keywords: list[str], preferred_source_types: list[str]
 ) -> int:
     """
     Score a retrieved chunk for a specific applicant information slot.
+    A slot should not activate only because the page type looks plausible.
     """
     text = doc.page_content.lower()
     metadata = doc.metadata or {}
     source_type = metadata.get("source_type", "")
 
-    score = 0
+    keyword_hits = count_keyword_hits(text, slot_keywords)
 
-    for keyword in slot_keywords:
-        if keyword.lower() in text:
-            score += 2
+    # Critical: no keyword evidence -> no slot activation.
+    if keyword_hits == 0:
+        return 0
 
-    # Prefer chunks from suitable page types.
+    score = keyword_hits * 2
+
     if preferred_source_types:
         if source_type == preferred_source_types[0]:
             score += 7
         elif source_type in preferred_source_types:
             score += 4
 
-    # Penalize likely navigation/menu chunks.
     navigation_markers = [
         "submenu:",
         "before your studies",
@@ -1510,7 +1516,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
     slots = {
         "programme_description": {
             "query": (
-                f"{user_request} "
                 "what the programme is about academic focus study content curriculum "
                 "specializations specialization fields of study topics modules "
                 "civil engineering construction infrastructure transport spatial planning "
@@ -1552,7 +1557,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "programme_facts": {
             "query": (
-                f"{user_request} "
                 "programme name program name course name degree award qualification "
                 "Bachelor of Science Master of Science duration semesters ECTS credits "
                 "language of instruction teaching language start of studies "
@@ -1583,7 +1587,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "entry_requirements": {
             "query": (
-                f"{user_request} "
                 "admission requirements entry requirements eligibility prerequisites "
                 "Abitur equivalent higher education entrance qualification HZB "
                 "self assessment enrollment application admission Voraussetzungen "
@@ -1607,7 +1610,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "language_requirements": {
             "query": (
-                f"{user_request} "
                 "language requirements language proficiency German English IELTS TOEFL CEFR "
                 "language certificate proof of language Sprachkenntnisse Sprachnachweis "
                 "Deutschkenntnisse Englischkenntnisse"
@@ -1634,7 +1636,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "documents": {
             "query": (
-                f"{user_request} "
                 "required documents application documents supporting documents proof certificate "
                 "transcript self assessment certificate pre-internship certificate "
                 "Unterlagen Dokumente Nachweise Zeugnisse Bescheinigung"
@@ -1662,7 +1663,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "fees": {
             "query": (
-                f"{user_request} "
                 "tuition fees semester contribution study costs financing scholarships "
                 "Studiengebühren Semesterbeitrag Kosten Finanzierung Stipendium"
             ),
@@ -1683,7 +1683,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "test_day": {
             "query": (
-                f"{user_request} "
                 "test day entrance test written test admission test aptitude test "
                 "test location test confirmation allowed items prohibited items "
                 "no replacement dates late arrival excluded from procedure "
@@ -1716,11 +1715,10 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
                 "viecon",
             ],
             "preferred_source_types": ["test_day_page", "admission_page"],
-            "min_score": 4,
+            "min_score": 8,
         },
         "deadlines": {
             "query": (
-                f"{user_request} "
                 "application deadline application period dates deadlines semester dates "
                 "winter semester summer semester start of studies "
                 "Bewerbungsfrist Bewerbungszeitraum Fristen Semestertermine Wintersemester Sommersemester"
@@ -1750,7 +1748,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "visa": {
             "query": (
-                f"{user_request} "
                 "student visa visa guide residence permit immigration embassy consulate "
                 "international student visa acceptance letter "
                 "Visum Aufenthaltstitel Botschaft Konsulat Einreise"
@@ -1773,7 +1770,6 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
         },
         "admission_procedure_facts": {
             "query": (
-                f"{user_request} "
                 "admission procedure entrance procedure application period test date "
                 "cost fee contribution places capacity test duration preparation material "
                 "Aufnahmeverfahren Eignungsverfahren Antragsfrist Testtermin "
@@ -1806,7 +1802,7 @@ def retrieve_programme_overview_context(vectorstore, user_request: str):
                 "test duration",
             ],
             "preferred_source_types": ["program_page", "admission_page"],
-            "min_score": 2,
+            "min_score": 8,
         },
     }
 
@@ -2340,6 +2336,9 @@ Rules:
 - If the context contains standalone numbers near admission/test information, include them cautiously with their visible label.
 - If a value appears with a clear label such as Kostenbeitrag, Studienplätze, Plätze, or Stunden, do not list it as missing.
 - If a number has no clear label, say that its meaning is unclear instead of using it as a fact.
+- If the user request mentions a different university or programme than the provided context, clearly state the mismatch first.
+- Then answer based on the provided context, not based on the mentioned university/programme.
+- The provided context is the source of truth.
 
 Context:
 {context}
