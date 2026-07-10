@@ -6,4 +6,4 @@ langchain
 langchain-community
 langchain-openai
 faiss-cpu
-pypdf
+pypdfSQLAlchemy>=2.0,<3.0
