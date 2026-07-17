@@ -7,3 +7,4 @@ langchain-community
 langchain-openai
 faiss-cpu
 pypdfSQLAlchemy>=2.0,<3.0
+beautifulsoup4>=4.12,<5.0
