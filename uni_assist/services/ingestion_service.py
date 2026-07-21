@@ -7,9 +7,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from uni_assist.ingestion.html_cleaner import clean_extracted_text
+from uni_assist.ingestion.structure_extractor import (
+    extract_structured_blocks,
+)
 from uni_assist.ingestion.web_loader import (
-    LoadedWebPage,
-    load_web_page,
+    ScrapedWebPage,
+    scrape_web_page,
 )
 from uni_assist.storage.models import (
     SearchSessionModel,
@@ -31,7 +34,7 @@ class IngestionResult:
 
     search_session: SearchSessionModel
     source: SourceModel
-    loaded_page: LoadedWebPage
+    loaded_page: ScrapedWebPage
 
 
 def build_content_hash(text: str) -> str:
@@ -56,10 +59,24 @@ def ingest_url(
     all records are committed together or rolled back together.
     """
 
-    loaded_page = load_web_page(url)
+    loaded_page = scrape_web_page(url)
+
+    structured_blocks = extract_structured_blocks(
+        loaded_page.soup
+    )
+
+    if not structured_blocks:
+        raise ValueError(
+            "The loaded web page contained no structured content."
+        )
+
+    structured_text = "\n".join(
+        block["text"]
+        for block in structured_blocks
+    )
 
     clean_text = clean_extracted_text(
-        loaded_page.extracted_text
+        structured_text
     )
 
     if not clean_text:
@@ -88,7 +105,7 @@ def ingest_url(
             source_type=UNKNOWN_SOURCE_TYPE,
             source_language=UNKNOWN_SOURCE_LANGUAGE,
             clean_text=clean_text,
-            structured_blocks=[],
+            structured_blocks=structured_blocks,
             content_hash=content_hash,
         )
 

@@ -38,6 +38,15 @@ class LoadedWebPage:
     title: Optional[str]
     extracted_text: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    
+@dataclass(frozen=True)
+class ScrapedWebPage:
+    """A web page preserved as a parsed HTML document."""
+
+    requested_url: str
+    source_url: str
+    title: Optional[str]
+    soup: Any
 
 
 def normalize_urls(urls: list[str]) -> list[str]:
@@ -66,6 +75,53 @@ def normalize_urls(urls: list[str]) -> list[str]:
                 normalized_urls.append(normalized_url)
 
     return normalized_urls
+
+
+def scrape_web_page(url: str) -> ScrapedWebPage:
+    """Load one URL while preserving its full HTML structure."""
+
+    normalized_urls = normalize_urls([url])
+
+    if not normalized_urls:
+        raise ValueError(
+            "A valid HTTP or HTTPS URL is required."
+        )
+
+    normalized_url = normalized_urls[0]
+
+    loader = WebBaseLoader(
+        normalized_url,
+        header_template={
+            "User-Agent": DEFAULT_USER_AGENT,
+        },
+    )
+
+    try:
+        soup = loader.scrape()
+    except Exception as error:
+        raise WebPageLoadError(
+            f"Could not scrape web page: {normalized_url}"
+        ) from error
+
+    if soup is None:
+        raise WebPageLoadError(
+            f"Web page returned no HTML document: {normalized_url}"
+        )
+
+    raw_title = (
+        soup.title.get_text(" ", strip=True)
+        if soup.title is not None
+        else None
+    )
+
+    title = raw_title or None
+
+    return ScrapedWebPage(
+        requested_url=normalized_url,
+        source_url=normalized_url,
+        title=title,
+        soup=soup,
+    )
 
 
 def load_web_page(url: str) -> LoadedWebPage:
