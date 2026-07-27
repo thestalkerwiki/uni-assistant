@@ -1,6 +1,6 @@
 """Structure-aware extraction of content blocks from HTML."""
 
-from typing import Any
+from typing import Any, Optional
 
 
 TARGET_TAGS = ["h1", "h2", "h3", "p", "li"]
@@ -11,9 +11,7 @@ def _is_inside_navigation(block: Any) -> bool:
 
     return (
         block.find_parent("nav") is not None
-        or block.find_parent(
-            attrs={"role": "navigation"}
-        ) is not None
+        or block.find_parent(attrs={"role": "navigation"}) is not None
     )
 
 
@@ -39,15 +37,12 @@ def _is_inside_toc_component(block: Any) -> bool:
         )
 
         has_toggle_heading = (
-            direct_heading is not None
-            and direct_heading.find("button") is not None
+            direct_heading is not None and direct_heading.find("button") is not None
         )
 
         has_navigation = (
             current.find("nav") is not None
-            or current.find(
-                attrs={"role": "navigation"}
-            ) is not None
+            or current.find(attrs={"role": "navigation"}) is not None
         )
 
         if has_toggle_heading and has_navigation:
@@ -71,10 +66,7 @@ def _is_back_to_top_control(block: Any) -> bool:
     block_text = block.get_text(" ", strip=True)
     link_text = link.get_text(" ", strip=True)
 
-    return (
-        href == "#top"
-        and block_text == link_text
-    )
+    return href == "#top" and block_text == link_text
 
 
 def _extract_description_list_pairs(
@@ -135,6 +127,93 @@ def _extract_description_list_pairs(
 
     return pairs
 
+
+def _parse_inline_label_value(
+    text: str,
+) -> Optional[dict]:
+    """
+    Parse one short string shaped like:
+
+    Duration of study: 6 semesters
+    """
+
+    label, separator, value = text.partition(":")
+
+    if not separator:
+        return None
+
+    label = label.strip()
+    value = value.strip()
+
+    if not label or not value:
+        return None
+
+    # Stay conservative: labels should be short field names,
+    # not complete prose sentences.
+    if len(label) > 80 or len(label.split()) > 10:
+        return None
+
+    if len(value) > 300:
+        return None
+
+    return {
+        "type": "label_value",
+        "tag": "li",
+        "label": label,
+        "value": value,
+        "text": f"{label}: {value}",
+    }
+
+
+def _extract_inline_label_value_items(
+    list_tag: Any,
+) -> dict[int, dict]:
+    """
+    Extract label-value pairs from a compact one-level list.
+
+    Example:
+    <ul>
+        <li>Duration: 6 semesters</li>
+        <li>ECTS: 180</li>
+        <li>Language: German</li>
+    </ul>
+    """
+
+    if (
+        list_tag.find_parent("nav") is not None
+        or list_tag.find_parent(attrs={"role": "navigation"}) is not None
+    ):
+        return {}
+
+    items = list_tag.find_all(
+        "li",
+        recursive=False,
+    )
+
+    # Require a compact cluster, not one isolated sentence.
+    if len(items) < 3 or len(items) > 12:
+        return {}
+
+    parsed_items: dict[int, dict] = {}
+
+    for item in items:
+        # Nested lists represent a more complex structure.
+        if item.find(["ul", "ol"]) is not None:
+            return {}
+
+        text = item.get_text(" ", strip=True)
+        parsed = _parse_inline_label_value(text)
+
+        # Treat the list as semantic only when every direct item
+        # follows the same label-value pattern.
+        if parsed is None:
+            return {}
+
+        parsed_items[id(item)] = parsed
+
+    return parsed_items
+
+
 def extract_structured_blocks(soup: Any) -> list[dict]:
     """
     Extract minimal content blocks from a BeautifulSoup document.
@@ -143,28 +222,23 @@ def extract_structured_blocks(soup: Any) -> list[dict]:
     identified navigation and structural duplication.
     """
 
-    scope = (
-        soup.find("main")
-        or soup.find("article")
-        or soup
-    )
+    scope = soup.find("main") or soup.find("article") or soup
 
     description_lists = {
-        id(description_list): _extract_description_list_pairs(
-            description_list
-        )
+        id(description_list): _extract_description_list_pairs(description_list)
         for description_list in scope.find_all("dl")
     }
 
     semantic_description_lists = {
-        list_id: pairs
-        for list_id, pairs in description_lists.items()
-        if pairs
+        list_id: pairs for list_id, pairs in description_lists.items() if pairs
     }
 
-    candidates = scope.find_all(
-        TARGET_TAGS + ["dl"]
-    )
+    inline_label_value_items: dict[int, dict] = {}
+
+    for list_tag in scope.find_all(["ul", "ol"]):
+        inline_label_value_items.update(_extract_inline_label_value_items(list_tag))
+
+    candidates = scope.find_all(TARGET_TAGS + ["dl"])
 
     content_blocks: list[dict] = []
 
@@ -181,13 +255,18 @@ def extract_structured_blocks(soup: Any) -> list[dict]:
 
             continue
 
+        inline_pair = inline_label_value_items.get(id(block))
+
+        if inline_pair is not None:
+            content_blocks.append(inline_pair)
+            continue
+
         # Skip p/li descendants already represented by a label-value pair.
         parent_description_list = block.find_parent("dl")
 
         if (
             parent_description_list is not None
-            and id(parent_description_list)
-            in semantic_description_lists
+            and id(parent_description_list) in semantic_description_lists
         ):
             continue
         # A parent containing another target block would duplicate it.
