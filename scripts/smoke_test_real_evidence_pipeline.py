@@ -85,8 +85,7 @@ def main() -> None:
             "Source provenance was not preserved."
         )
         
-    print("RAW TEXT:", repr(evidence.raw_text))
-    print("RAW BYTES:", list(evidence.raw_text.encode("utf-8")))
+    
 
     print("REAL EVIDENCE PIPELINE: PASS")
     print(evidence.model_dump(mode="json"))
