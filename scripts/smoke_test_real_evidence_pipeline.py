@@ -1,5 +1,6 @@
 """Manual smoke test for the real LLM-backed evidence pipeline."""
 
+from uni_assist.domain import evidence
 from uni_assist.domain.evidence import (
     EvidenceCategory,
     EvidenceConfidence,
@@ -83,6 +84,9 @@ def main() -> None:
         raise RuntimeError(
             "Source provenance was not preserved."
         )
+        
+    print("RAW TEXT:", repr(evidence.raw_text))
+    print("RAW BYTES:", list(evidence.raw_text.encode("utf-8")))
 
     print("REAL EVIDENCE PIPELINE: PASS")
     print(evidence.model_dump(mode="json"))
