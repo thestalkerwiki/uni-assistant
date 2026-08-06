@@ -283,7 +283,7 @@ class EvidenceItemModel(Base):
     __tablename__ = "evidence_items"
 
     id: Mapped[str] = mapped_column(
-        String(36),
+        String(64),
         primary_key=True,
         default=generate_id,
     )
