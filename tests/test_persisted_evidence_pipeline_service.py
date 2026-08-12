@@ -9,11 +9,9 @@ from uni_assist.extraction.classification_contract import (
     ClassificationStatus,
     EvidenceClassification,
 )
-from uni_assist.extraction.evidence_grounding import (
-    EvidenceSourceContext,
-)
+
 from uni_assist.services.persisted_evidence_pipeline_service import (
-    build_and_persist_evidence,
+    build_and_persist_evidence_for_source,
 )
 from uni_assist.storage.database import Base
 from uni_assist.storage.models import ProgrammeModel
@@ -92,23 +90,17 @@ def test_builds_and_persists_evidence_end_to_end() -> None:
 
         db.add(programme)
         db.flush()
-
-        source_context = EvidenceSourceContext(
-            source_id=stored_source.id,
-            source_url=stored_source.url,
-            source_type=stored_source.source_type,
-            source_language=stored_source.source_language,
+        
+        result = build_and_persist_evidence_for_source(
+        db=db,
+        user_id=user_id,
+        programme_id=programme.id,
+        source_id=stored_source.id,
+        classifier=FakeClassifier(),
+        confidence=EvidenceConfidence.HIGH,
         )
 
-        result = build_and_persist_evidence(
-            db=db,
-            user_id=user_id,
-            programme_id=programme.id,
-            structured_blocks=structured_blocks,
-            source=source_context,
-            classifier=FakeClassifier(),
-            confidence=EvidenceConfidence.HIGH,
-        )
+
 
         assert len(result.evidence_items) == 1
         assert result.unresolved_candidates == []
