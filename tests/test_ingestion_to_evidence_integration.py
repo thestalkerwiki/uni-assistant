@@ -34,6 +34,24 @@ class FakeClassifier:
             )
             for candidate in request.candidates
         ]
+        
+class RecordingClassifier:
+    """Record the classification request for inspection."""
+
+    def __init__(self):
+        self.request = None
+
+    def classify(self, request):
+        self.request = request
+
+        return [
+            EvidenceClassification(
+                candidate_id=candidate.candidate_id,
+                status=ClassificationStatus.RESOLVED,
+                category=EvidenceCategory.DURATION_WORKLOAD,
+            )
+            for candidate in request.candidates
+        ]
 
 
 def test_ingests_html_and_persists_evidence(
@@ -202,3 +220,74 @@ def test_missing_html_language_stays_unknown(
 
         assert result.source.source_type == "webpage"
         assert result.source.source_language == "unknown"
+        
+def test_declared_language_reaches_classifier(
+    monkeypatch,
+) -> None:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+    )
+    Base.metadata.create_all(engine)
+
+    html = """
+    <html lang="de">
+        <body>
+            <main>
+                <dl>
+                    <dt>Studiendauer</dt>
+                    <dd>6 Semester</dd>
+                </dl>
+            </main>
+        </body>
+    </html>
+    """
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    def fake_scrape_web_page(url: str) -> ScrapedWebPage:
+        return ScrapedWebPage(
+            requested_url=url,
+            source_url=url,
+            title=None,
+            soup=soup,
+        )
+
+    monkeypatch.setattr(
+        "uni_assist.services.ingestion_service.scrape_web_page",
+        fake_scrape_web_page,
+    )
+
+    classifier = RecordingClassifier()
+
+    with Session(engine) as db:
+        ingestion_result = ingest_url(
+            db=db,
+            user_id="user-123",
+            url="https://example.edu/programme",
+            query="Programme",
+            output_language="en",
+        )
+
+        programme = ProgrammeModel(
+            user_id="user-123",
+            title="Psychology",
+        )
+
+        db.add(programme)
+        db.flush()
+
+        build_and_persist_evidence_for_source(
+            db=db,
+            user_id="user-123",
+            programme_id=programme.id,
+            source_id=ingestion_result.source.id,
+            classifier=classifier,
+            confidence=EvidenceConfidence.HIGH,
+        )
+
+        assert classifier.request is not None
+        assert len(classifier.request.candidates) == 1
+        assert (
+            classifier.request.candidates[0].source_language
+            == "de"
+        )
