@@ -52,16 +52,21 @@ def analyse_url(
         detected_intent=detected_intent,
     )
 
-    evidence_result = build_and_persist_evidence_for_source(
-        db=db,
-        user_id=user_id,
-        programme_id=programme_id,
-        source_id=ingestion_result.source.id,
-        classifier=classifier,
-        confidence=confidence,
-    )
+    try:
+        evidence_result = build_and_persist_evidence_for_source(
+            db=db,
+            user_id=user_id,
+            programme_id=programme_id,
+            source_id=ingestion_result.source.id,
+            classifier=classifier,
+            confidence=confidence,
+        )
 
-    db.commit()
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
     return SourceAnalysisResult(
         ingestion=ingestion_result,
