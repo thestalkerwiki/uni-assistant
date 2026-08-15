@@ -24,7 +24,7 @@ from uni_assist.storage.repositories import (
 )
 
 
-UNKNOWN_SOURCE_TYPE = "unknown"
+UNKNOWN_SOURCE_TYPE = "webpage"
 UNKNOWN_SOURCE_LANGUAGE = "unknown"
 
 
@@ -41,6 +41,23 @@ def build_content_hash(text: str) -> str:
     """Build a stable SHA-256 fingerprint for cleaned source text."""
 
     return sha256(text.encode("utf-8")).hexdigest()
+
+def get_declared_source_language(soup) -> str:
+    """Return the language explicitly declared by the HTML document."""
+
+    html_tag = soup.find("html")
+
+    if html_tag is None:
+        return UNKNOWN_SOURCE_LANGUAGE
+
+    raw_language = html_tag.get("lang")
+
+    if not raw_language:
+        return UNKNOWN_SOURCE_LANGUAGE
+
+    language = str(raw_language).strip()
+
+    return language or UNKNOWN_SOURCE_LANGUAGE
 
 
 def ingest_url(
@@ -85,6 +102,10 @@ def ingest_url(
         )
 
     content_hash = build_content_hash(clean_text)
+    
+    source_language = get_declared_source_language(
+    loaded_page.soup
+    )
 
     try:
         search_session = create_search_session(
@@ -103,7 +124,7 @@ def ingest_url(
             url=loaded_page.requested_url,
             normalized_url=loaded_page.source_url,
             source_type=UNKNOWN_SOURCE_TYPE,
-            source_language=UNKNOWN_SOURCE_LANGUAGE,
+            source_language=source_language,
             clean_text=clean_text,
             structured_blocks=structured_blocks,
             content_hash=content_hash,

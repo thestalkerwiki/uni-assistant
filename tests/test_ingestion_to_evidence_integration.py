@@ -45,7 +45,7 @@ def test_ingests_html_and_persists_evidence(
     Base.metadata.create_all(engine)
 
     html = """
-    <html>
+    <html lang="de">
         <head>
             <title>Psychology</title>
         </head>
@@ -90,7 +90,8 @@ def test_ingests_html_and_persists_evidence(
         )
 
         stored_source = ingestion_result.source
-
+        assert stored_source.source_type == "webpage"
+        assert stored_source.source_language == "de"
         assert stored_source.structured_blocks == [
             {
                 "tag": "h1",
@@ -150,3 +151,54 @@ def test_ingests_html_and_persists_evidence(
             "Studiendauer: 6 Semester"
         )
         assert evidence.source_id == stored_source.id
+        
+        assert evidence.source_id == stored_source.id
+
+
+def test_missing_html_language_stays_unknown(
+    monkeypatch,
+) -> None:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+    )
+    Base.metadata.create_all(engine)
+
+    html = """
+    <html>
+        <body>
+            <main>
+                <dl>
+                    <dt>Studiendauer</dt>
+                    <dd>6 Semester</dd>
+                </dl>
+            </main>
+        </body>
+    </html>
+    """
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    def fake_scrape_web_page(url: str) -> ScrapedWebPage:
+        return ScrapedWebPage(
+            requested_url=url,
+            source_url=url,
+            title=None,
+            soup=soup,
+        )
+
+    monkeypatch.setattr(
+        "uni_assist.services.ingestion_service.scrape_web_page",
+        fake_scrape_web_page,
+    )
+
+    with Session(engine) as db:
+        result = ingest_url(
+            db=db,
+            user_id="user-123",
+            url="https://example.edu/programme",
+            query="Programme",
+            output_language="en",
+        )
+
+        assert result.source.source_type == "webpage"
+        assert result.source.source_language == "unknown"
