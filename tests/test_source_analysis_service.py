@@ -1,9 +1,7 @@
 import pytest
 
-from sqlalchemy import create_engine, select
-
 from bs4 import BeautifulSoup
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from uni_assist.domain.evidence import (
@@ -15,23 +13,17 @@ from uni_assist.extraction.classification_contract import (
     EvidenceClassification,
 )
 from uni_assist.ingestion.web_loader import ScrapedWebPage
-from uni_assist.services.source_analysis_service import analyse_url
+from uni_assist.services.source_analysis_service import (
+    analyse_stored_source,
+    analyse_url,
+)
 from uni_assist.storage.database import Base
-from uni_assist.storage.models import ProgrammeModel
+from uni_assist.storage.models import (
+    EvidenceItemModel,
+    ProgrammeModel,
+    SourceModel,
+)
 from uni_assist.storage.repositories import get_programme_by_id
-from uni_assist.storage.models import (
-    EvidenceItemModel,
-    ProgrammeModel,
-    SourceModel,
-)
-from uni_assist.services.persisted_evidence_pipeline_service import (
-    build_and_persist_evidence_for_source,
-)
-from uni_assist.storage.models import (
-    EvidenceItemModel,
-    ProgrammeModel,
-    SourceModel,
-)
 
 
 class FakeClassifier:
@@ -109,6 +101,11 @@ def test_analyse_url_runs_complete_application_flow(
 
         assert result.ingestion.source.source_language == "de"
         assert len(result.evidence.evidence_items) == 1
+        
+        assert (
+            result.programme_projection.duration
+            == "6 Semester"
+        )
 
         loaded_programme = get_programme_by_id(
             db=db,
@@ -117,6 +114,8 @@ def test_analyse_url_runs_complete_application_flow(
         )
 
         assert loaded_programme is not None
+        
+        assert loaded_programme.duration == "6 Semester"
         assert len(loaded_programme.evidence_items) == 1
         assert (
             loaded_programme.evidence_items[0].value
@@ -268,7 +267,7 @@ def test_failed_source_can_be_reanalysed_without_reingestion(
             select(SourceModel)
         ).scalar_one()
 
-        result = build_and_persist_evidence_for_source(
+        result = analyse_stored_source(
             db=db,
             user_id="user-123",
             programme_id=programme.id,
@@ -280,7 +279,11 @@ def test_failed_source_can_be_reanalysed_without_reingestion(
         db.commit()
 
         assert scrape_calls == 1
-        assert len(result.evidence_items) == 1
+        assert len(result.evidence.evidence_items) == 1
+        assert (
+            result.programme_projection.duration
+            == "6 Semester"
+        )
 
         evidence_items = list(
             db.execute(
@@ -291,3 +294,12 @@ def test_failed_source_can_be_reanalysed_without_reingestion(
         assert len(evidence_items) == 1
         assert evidence_items[0].value == "6 Semester"
         assert evidence_items[0].source_id == stored_source.id
+        
+        loaded_programme = get_programme_by_id(
+            db=db,
+            programme_id=programme.id,
+            user_id="user-123",
+        )
+
+        assert loaded_programme is not None
+        assert loaded_programme.duration == "6 Semester"
