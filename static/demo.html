@@ -823,7 +823,7 @@
         <button id="askButton" class="ask-button">Ask Uni Assistant</button>
 
         <p class="hint">
-          This demo calls <strong>/web-multi-assistant</strong> and renders the answer in a readable format.
+          This demo calls <strong>/api/v2/analyse</strong> and builds the result from grounded university evidence.
         </p>
       </div>
 
@@ -866,7 +866,7 @@
 
     function getUrls() {
       return urlsInput.value
-        .split("\n")
+        .split(/\s+/)
         .map(url => url.trim())
         .filter(Boolean);
     }
@@ -1022,13 +1022,70 @@
       return html;
     }
 
+
+    function buildV2Answer(data) {
+      const programme = data.programme || {};
+      const evidence = data.evidence || [];
+      const conflicts = data.conflicts || {};
+
+      let text = "## Programme profile\n";
+
+      const profileFields = [
+        ["Degree", programme.degree],
+        ["Duration", programme.duration],
+        ["ECTS credits", programme.credits],
+        ["Language of instruction", programme.language]
+      ];
+
+      let profileFacts = 0;
+
+      profileFields.forEach(([label, value]) => {
+        if (value) {
+          text += `- **${label}:** ${value}\n`;
+          profileFacts += 1;
+        }
+      });
+
+      if (profileFacts === 0) {
+        text += "- No programme-level facts were resolved from these sources.\n";
+      }
+
+      text += "\n## Evidence\n";
+
+      if (evidence.length === 0) {
+        text += "- No resolved evidence was extracted.\n";
+      } else {
+        evidence.forEach(item => {
+          text += `- **${item.label}:** ${item.value}\n`;
+        });
+      }
+
+      const conflictEntries = Object.entries(conflicts);
+
+      if (conflictEntries.length > 0) {
+        text += "\n## Conflicts\n";
+
+        conflictEntries.forEach(([field, values]) => {
+          text += `- **${field}:** ${values.join(" | ")}\n`;
+        });
+      }
+
+      if (data.unresolved_count > 0) {
+        text += "\n## Unresolved\n";
+        text += `- ${data.unresolved_count} evidence candidate(s) could not be classified confidently.\n`;
+      }
+
+      return text;
+    }
+
     async function askAssistant() {
       const urls = getUrls();
       const question = questionInput.value.trim();
 
       if (urls.length === 0 || !question) {
         answerBlock.className = "error";
-        answerBlock.textContent = "Please provide at least one URL and a question.";
+        answerBlock.textContent =
+          "Please provide at least one URL and a question.";
         modeBlock.textContent = "error";
         renderSources([]);
         return;
@@ -1037,12 +1094,15 @@
       askButton.disabled = true;
       askButton.textContent = "Thinking...";
       modeBlock.textContent = "loading";
+
       answerBlock.className = "answer placeholder";
-      answerBlock.textContent = "Reading sources and preparing an answer...";
+      answerBlock.textContent =
+        "Reading official sources and building programme evidence...";
+
       renderSources([]);
 
       try {
-        const response = await fetch("/web-multi-assistant", {
+        const response = await fetch("/api/v2/analyse", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -1054,25 +1114,50 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
+          throw new Error(
+            `Request failed with status ${response.status}`
+          );
         }
 
         const data = await response.json();
 
-        modeBlock.textContent = data.mode || "answer";
+        modeBlock.textContent = "v2 evidence";
         answerBlock.className = "answer";
-        answerBlock.innerHTML = renderMarkdownLike(data.answer);
-        renderSources(data.sources || []);
+        answerBlock.innerHTML = renderMarkdownLike(
+          buildV2Answer(data)
+        );
+
+        const sources = [
+          ...new Set(
+            (data.evidence || [])
+              .map(item => item.source_url)
+              .filter(Boolean)
+          )
+        ];
+
+        if (
+          sources.length === 0 &&
+          data.source_url
+        ) {
+          sources.push(data.source_url);
+        }
+
+        renderSources(sources);
       } catch (error) {
         modeBlock.textContent = "error";
         answerBlock.className = "error";
-        answerBlock.textContent = error.message || "Something went wrong.";
+        answerBlock.textContent =
+          error.message || "Something went wrong.";
+
         renderSources([]);
       } finally {
         askButton.disabled = false;
         askButton.textContent = "Ask Uni-Assist";
       }
     }
+
+ 
+
 
     const introOverlay = document.getElementById("introOverlay");
 
