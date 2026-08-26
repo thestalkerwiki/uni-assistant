@@ -1,19 +1,30 @@
 """FastAPI entry point for Uni-Assist v2."""
 
+from contextlib import asynccontextmanager
 from typing import Generator, Optional
 
 from fastapi import Depends, FastAPI
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from uni_assist.domain.evidence import EvidenceConfidence
 from uni_assist.integrations.openai_classifier import (
     OpenAIEvidenceClassifier,
 )
+from uni_assist.integrations.openai_query_interpreter import (
+    OpenAIQueryInterpreter,
+)
 from uni_assist.services.classification_service import (
     EvidenceClassifier,
+)
+from uni_assist.services.query_interpretation_service import (
+    QueryInterpreter,
+    interpret_user_query,
+)
+from uni_assist.services.query_scope_service import (
+    get_evidence_categories_for_intent,
 )
 from uni_assist.services.source_analysis_service import analyse_url
 from uni_assist.storage.database import (
@@ -24,9 +35,16 @@ from uni_assist.storage.models import ProgrammeModel
 from uni_assist.storage.repositories import get_or_create_user
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="Uni-Assist API",
     version="2.0",
+    lifespan=lifespan,
 )
 
 app.mount(
@@ -62,12 +80,13 @@ class ProgrammeResponse(BaseModel):
     duration: Optional[str] = None
     credits: Optional[str] = None
     language: Optional[str] = None
-    
+
 
 class AnalyseSourceResponse(BaseModel):
     source_id: str
     source_url: str
     source_language: str
+    intent: str
 
     evidence: list[EvidenceResponse]
     unresolved_count: int
@@ -85,15 +104,16 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def get_classifier() -> EvidenceClassifier:
-    return OpenAIEvidenceClassifier(
+def get_query_interpreter() -> QueryInterpreter:
+    return OpenAIQueryInterpreter(
         model_name="gpt-5.5",
     )
 
 
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
+def get_classifier() -> EvidenceClassifier:
+    return OpenAIEvidenceClassifier(
+        model_name="gpt-5.5",
+    )
 
 
 @app.get("/")
@@ -101,7 +121,8 @@ def root() -> dict[str, str]:
     return {
         "message": "Uni-Assist v2 API is running",
     }
-    
+
+
 @app.get(
     "/demo",
     include_in_schema=False,
@@ -114,18 +135,26 @@ def demo_page():
     "/api/v2/analyse",
     response_model=AnalyseSourceResponse,
 )
-
-
-@app.post(
-    "/api/v2/analyse",
-    response_model=AnalyseSourceResponse,
-)
 def analyse_source(
     request: AnalyseSourceRequest,
     db: Session = Depends(get_db),
     classifier: EvidenceClassifier = Depends(get_classifier),
+    query_interpreter: QueryInterpreter = Depends(
+        get_query_interpreter
+    ),
 ) -> AnalyseSourceResponse:
     user_id = "demo-user"
+
+    query_interpretation = interpret_user_query(
+        question=request.question,
+        interpreter=query_interpreter,
+    )
+
+    allowed_categories = set(
+        get_evidence_categories_for_intent(
+            query_interpretation.intent
+        )
+    )
 
     get_or_create_user(
         db=db,
@@ -157,12 +186,20 @@ def analyse_source(
         )
 
         analysed_results.append(result)
+
         evidence_items.extend(
             result.evidence.evidence_items
         )
+
         unresolved_count += len(
             result.evidence.unresolved_candidates
         )
+
+    response_evidence_items = [
+        item
+        for item in evidence_items
+        if item.category in allowed_categories
+    ]
 
     final_result = analysed_results[-1]
 
@@ -172,6 +209,7 @@ def analyse_source(
         source_language=(
             final_result.ingestion.source.source_language
         ),
+        intent=query_interpretation.intent.value,
         evidence=[
             EvidenceResponse(
                 id=item.id,
@@ -181,7 +219,7 @@ def analyse_source(
                 raw_text=item.raw_text,
                 source_url=item.source_url,
             )
-            for item in evidence_items
+            for item in response_evidence_items
         ],
         unresolved_count=unresolved_count,
         programme=ProgrammeResponse(
@@ -203,35 +241,4 @@ def analyse_source(
         conflicts=(
             final_result.programme_projection.conflicts
         ),
-    )
-
-    return AnalyseSourceResponse(
-        source_id=result.ingestion.source.id,
-        source_url=result.ingestion.source.url,
-        source_language=(
-            result.ingestion.source.source_language
-        ),
-        evidence=[
-            EvidenceResponse(
-                id=item.id,
-                category=item.category.value,
-                label=item.label,
-                value=item.value,
-                raw_text=item.raw_text,
-                source_url=item.source_url,
-            )
-            for item in result.evidence.evidence_items
-        ],
-        unresolved_count=len(
-            result.evidence.unresolved_candidates
-        ),
-        programme=ProgrammeResponse(
-            id=programme.id,
-            title=programme.title,
-            degree=result.programme_projection.degree,
-            duration=result.programme_projection.duration,
-            credits=result.programme_projection.credits,
-            language=result.programme_projection.language,
-        ),
-        conflicts=result.programme_projection.conflicts,
     )
