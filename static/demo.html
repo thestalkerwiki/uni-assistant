@@ -1027,33 +1027,49 @@
       const programme = data.programme || {};
       const evidence = data.evidence || [];
       const conflicts = data.conflicts || {};
+      const intent = data.intent || "direct_question";
 
-      let text = "## Programme profile\n";
+      let text = "";
 
-      const profileFields = [
-        ["Degree", programme.degree],
-        ["Duration", programme.duration],
-        ["ECTS credits", programme.credits],
-        ["Language of instruction", programme.language]
-      ];
+      if (intent === "overview") {
+        text += "## Programme profile\n";
 
-      let profileFacts = 0;
+        const profileFields = [
+          ["Degree", programme.degree],
+          ["Duration", programme.duration],
+          ["ECTS credits", programme.credits],
+          ["Language of instruction", programme.language]
+        ];
 
-      profileFields.forEach(([label, value]) => {
-        if (value) {
-          text += `- **${label}:** ${value}\n`;
-          profileFacts += 1;
+        let profileFacts = 0;
+
+        profileFields.forEach(([label, value]) => {
+          if (value) {
+            text += `- **${label}:** ${value}\n`;
+            profileFacts += 1;
+          }
+        });
+
+        if (profileFacts === 0) {
+          text += "- No programme-level facts were resolved from these sources.\n";
         }
-      });
 
-      if (profileFacts === 0) {
-        text += "- No programme-level facts were resolved from these sources.\n";
+        text += "\n";
       }
 
-      text += "\n## Evidence\n";
+      const sectionTitles = {
+        overview: "Evidence",
+        admission_requirements: "Admission requirements",
+        deadlines: "Deadlines",
+        documents: "Required documents",
+        preparation: "Preparation",
+        direct_question: "Relevant evidence"
+      };
+
+      text += `## ${sectionTitles[intent] || "Relevant evidence"}\n`;
 
       if (evidence.length === 0) {
-        text += "- No resolved evidence was extracted.\n";
+        text += "- No relevant resolved evidence was found in the provided sources.\n";
       } else {
         evidence.forEach(item => {
           text += `- **${item.label}:** ${item.value}\n`;
@@ -1121,7 +1137,7 @@
 
         const data = await response.json();
 
-        modeBlock.textContent = "v2 evidence";
+        modeBlock.textContent = data.intent || "v2 evidence";
         answerBlock.className = "answer";
         answerBlock.innerHTML = renderMarkdownLike(
           buildV2Answer(data)
