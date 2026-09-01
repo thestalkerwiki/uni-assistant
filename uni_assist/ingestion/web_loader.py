@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 import bs4
 from langchain_community.document_loaders import WebBaseLoader
@@ -38,7 +39,8 @@ class LoadedWebPage:
     title: Optional[str]
     extracted_text: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
+
 @dataclass(frozen=True)
 class ScrapedWebPage:
     """A web page preserved as a parsed HTML document."""
@@ -47,6 +49,50 @@ class ScrapedWebPage:
     source_url: str
     title: Optional[str]
     soup: Any
+
+
+def normalize_url(url: str) -> Optional[str]:
+    """
+    Build a conservative identity for one HTTP or HTTPS URL.
+
+    We normalize only URL parts that are safe for source identity:
+    - scheme is lower-cased;
+    - host is lower-cased;
+    - fragment is removed.
+
+    Path and query parameters are deliberately preserved because
+    they may change the actual university content being requested.
+    """
+
+    candidate = url.strip()
+
+    if not candidate:
+        return None
+
+    try:
+        parsed = urlsplit(candidate)
+    except ValueError:
+        return None
+
+    scheme = parsed.scheme.lower()
+
+    if scheme not in ("http", "https"):
+        return None
+
+    if not parsed.netloc:
+        return None
+
+    normalized_netloc = parsed.netloc.lower()
+
+    return urlunsplit(
+        (
+            scheme,
+            normalized_netloc,
+            parsed.path,
+            parsed.query,
+            "",
+        )
+    )
 
 
 def normalize_urls(urls: list[str]) -> list[str]:
@@ -58,17 +104,15 @@ def normalize_urls(urls: list[str]) -> list[str]:
         if not item:
             continue
 
-        candidates = re.split(r"\s+", item.strip())
+        candidates = re.split(
+            r"\s+",
+            item.strip(),
+        )
 
         for candidate in candidates:
-            normalized_url = candidate.strip()
+            normalized_url = normalize_url(candidate)
 
-            if not normalized_url:
-                continue
-
-            if not normalized_url.startswith(
-                ("http://", "https://")
-            ):
+            if normalized_url is None:
                 continue
 
             if normalized_url not in normalized_urls:
@@ -109,7 +153,10 @@ def scrape_web_page(url: str) -> ScrapedWebPage:
         )
 
     raw_title = (
-        soup.title.get_text(" ", strip=True)
+        soup.title.get_text(
+            " ",
+            strip=True,
+        )
         if soup.title is not None
         else None
     )
@@ -142,7 +189,9 @@ def load_web_page(url: str) -> LoadedWebPage:
             "User-Agent": DEFAULT_USER_AGENT,
         },
         bs_kwargs={
-            "parse_only": bs4.SoupStrainer(CONTENT_TAGS),
+            "parse_only": bs4.SoupStrainer(
+                CONTENT_TAGS
+            ),
         },
         bs_get_text_kwargs={
             "separator": "\n",
@@ -168,7 +217,9 @@ def load_web_page(url: str) -> LoadedWebPage:
             f"Web page contained no usable text: {normalized_url}"
         )
 
-    extracted_text = "\n\n".join(extracted_parts)
+    extracted_text = "\n\n".join(
+        extracted_parts
+    )
 
     metadata = (
         dict(documents[0].metadata)
@@ -176,11 +227,17 @@ def load_web_page(url: str) -> LoadedWebPage:
         else {}
     )
 
-    source_url = str(
+    raw_source_url = str(
         metadata.get("source") or normalized_url
     )
 
+    source_url = (
+        normalize_url(raw_source_url)
+        or normalized_url
+    )
+
     raw_title = metadata.get("title")
+
     title = (
         str(raw_title).strip()
         if raw_title

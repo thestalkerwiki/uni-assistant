@@ -10,15 +10,38 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg: #050b14;
+      --bg-soft: #081323;
+      --card: #0b1626;
+      --card-soft: #101f34;
+      --border: #22324a;
+      --border-soft: #31445f;
+      --text: #f6efe3;
+      --muted: #c6b8a3;
+      --muted-2: #8f9aad;
+      --accent: #d6aa55;
+      --accent-light: #f0cf7a;
+      --accent-dark: #9b7434;
+      --accent-soft: rgba(214, 170, 85, 0.16);
+      --danger: #ffb4a8;
+      --danger-bg: #331b1b;
+      --danger-border: #743333;
+    }
+
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f6f3ee;
-      color: #2f2a25;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(214, 170, 85, 0.10), transparent 28%),
+        radial-gradient(circle at 82% 12%, rgba(15, 23, 42, 0.10), transparent 30%),
+        radial-gradient(circle at 50% 100%, rgba(226, 232, 240, 0.70), transparent 42%),
+        linear-gradient(180deg, #fbfaf7 0%, #f3f0ea 52%, #ebe7df 100%);
+      color: #091525;
     }
 
     .page {
-      max-width: 1100px;
+      max-width: 1180px;
       margin: 0 auto;
       padding: 40px 24px;
     }
@@ -26,29 +49,29 @@
     .header {
       margin-bottom: 32px;
       padding-top: 10px;
-
     }
 
     .eyebrow {
+      margin-bottom: 8px;
+      color: #9b7434;
       font-size: 13px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #8a6a4f;
-      margin-bottom: 8px;
     }
 
     h1 {
+      margin: 0 0 12px;
+      color: #091525;
       font-size: 36px;
       line-height: 1.1;
-      margin: 0 0 12px;
-      color: #3a2418;
+      letter-spacing: -0.03em;
     }
 
     .subtitle {
       max-width: 720px;
+      color: #4e5a6b;
       font-size: 16px;
       line-height: 1.6;
-      color: #625850;
     }
 
     .layout {
@@ -59,56 +82,154 @@
     }
 
     .card {
-      background: #fffaf4;
-      border: 1px solid #e4d8ca;
-      border-radius: 18px;
       padding: 22px;
-      box-shadow: 0 10px 30px rgba(72, 49, 32, 0.06);
+      border: 1px solid rgba(9, 21, 37, 0.10);
+      border-radius: 18px;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        rgba(255, 255, 255, 0.60)
+      );
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(18px);
     }
 
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #3a2418;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 140px;
-      resize: vertical;
-      padding: 14px;
-      border: 1px solid #d5c6b6;
-      border-radius: 12px;
-      background: #fff;
-      color: #2f2a25;
-      font: inherit;
-      line-height: 1.45;
-      outline: none;
-    }
-
-    textarea:focus {
-      border-color: #9c7658;
-      box-shadow: 0 0 0 3px rgba(156, 118, 88, 0.15);
+    .layout > .card:first-child {
+      position: sticky;
+      top: 24px;
     }
 
     .field {
       margin-bottom: 18px;
     }
 
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #091525;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    textarea,
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid rgba(9, 21, 37, 0.10);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.72);
+      color: #091525;
+      font: inherit;
+      line-height: 1.45;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    textarea::placeholder,
+    input::placeholder {
+      color: #7b8696;
+    }
+
+    textarea:focus,
+    input[type="text"]:focus,
+    select:focus {
+      border-color: rgba(155, 116, 52, 0.26);
+      box-shadow: 0 0 0 3px rgba(214, 170, 85, 0.10);
+    }
+
+    .question {
+      min-height: 90px;
+    }
+
+    .workspace-panel {
+      margin-bottom: 20px;
+      padding: 14px;
+      border: 1px solid rgba(9, 21, 37, 0.10);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.42);
+    }
+
+    .workspace-title {
+      margin-bottom: 10px;
+      color: #091525;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .workspace-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .workspace-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .workspace-status {
+      margin-top: 10px;
+      padding: 10px 11px;
+      border: 1px solid rgba(9, 21, 37, 0.08);
+      border-radius: 10px;
+      background: rgba(248, 244, 238, 0.84);
+      color: #5a6574;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .secondary-button {
+      min-height: 44px;
+      padding: 10px 14px;
+      border: 1px solid rgba(9, 21, 37, 0.12);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.78);
+      color: #091525;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: 0.16s ease;
+    }
+
+    .secondary-button:hover {
+      border-color: rgba(155, 116, 52, 0.28);
+      background: rgba(255, 255, 255, 0.96);
+      transform: translateY(-1px);
+    }
+
+    .secondary-button:disabled {
+      opacity: 0.48;
+      transform: none;
+      cursor: not-allowed;
+    }
+
+    .source-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: -6px;
+      margin-bottom: 18px;
+    }
+
     .presets {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: -6px 0 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: -6px 0 18px;
     }
 
     .preset-button {
       width: auto;
+      padding: 8px 12px;
       border: 1px solid rgba(9, 21, 37, 0.10);
       border-radius: 999px;
-      padding: 8px 12px;
       background: rgba(255, 255, 255, 0.72);
       color: #4e5a6b;
       font-size: 12px;
@@ -123,27 +244,20 @@
       background: rgba(255, 255, 255, 0.92);
       color: #091525;
       transform: translateY(-1px);
-      box-shadow: none;
     }
 
     .preset-button.active {
       border-color: rgba(155, 116, 52, 0.24);
       background: rgba(248, 244, 238, 0.96);
       color: #091525;
-      box-shadow: none;
-    }
-
-
-    .question {
-      min-height: 90px;
     }
 
     .ask-button {
       width: 100%;
       min-height: 48px;
+      padding: 13px 20px;
       border: 1px solid rgba(155, 116, 52, 0.34);
       border-radius: 14px;
-      padding: 13px 20px;
       background: #10233d;
       color: #f5efe6;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
@@ -152,7 +266,6 @@
       letter-spacing: -0.01em;
       cursor: pointer;
       transition: 0.16s ease;
-      text-shadow: none;
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
     }
 
@@ -169,20 +282,19 @@
     }
 
     .ask-button:disabled {
-      background: #cfd6df;
-      color: #7c8796;
-      border-color: rgba(9, 21, 37, 0.08);
+      background: linear-gradient(180deg, #26354a, #1a2638);
+      color: #7f8a9a;
+      border-color: rgba(255, 255, 255, 0.08);
       box-shadow: none;
-      text-shadow: none;
       transform: none;
       cursor: not-allowed;
-}
+    }
 
     .hint {
-      font-size: 13px;
-      color: #7b7169;
-      line-height: 1.5;
       margin-top: 14px;
+      color: var(--muted-2);
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .answer-card {
@@ -198,35 +310,36 @@
     }
 
     .answer-title {
+      color: #091525;
       font-size: 18px;
       font-weight: 700;
-      color: #091525;
     }
 
     .mode {
-      font-size: 12px;
-      padding: 5px 9px;
+      padding: 6px 10px;
+      border: 1px solid rgba(9, 21, 37, 0.14);
       border-radius: 999px;
-      background: #efe4d8;
-      color: #6f4a34;
+      background: rgba(9, 21, 37, 0.06);
+      color: #091525;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: -0.01em;
       white-space: nowrap;
     }
 
     .answer {
-      line-height: 1.65;
+      color: #2f3a49;
       font-size: 15px;
-      color: #091525;
+      line-height: 1.65;
     }
 
-        .answer h2 {
+    .answer h2 {
       margin: 26px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(9, 21, 37, 0.10);
+      color: #091525;
       font-size: 18px;
       line-height: 1.25;
-      color: #091525;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #eadfd3;
-      border-bottom-color: rgba(9, 21, 37, 0.10);
-
     }
 
     .answer h2:first-child {
@@ -235,8 +348,8 @@
 
     .answer p {
       margin: 0 0 12px;
-      line-height: 1.65;
       color: #425061;
+      line-height: 1.65;
     }
 
     .answer ul,
@@ -247,8 +360,8 @@
 
     .answer li {
       margin-bottom: 7px;
-      line-height: 1.55;
       color: #425061;
+      line-height: 1.55;
     }
 
     .answer strong {
@@ -256,26 +369,22 @@
       font-weight: 700;
     }
 
-    .answer-section {
-      margin-bottom: 18px;
-    }
-
     .placeholder {
-      color: #8a8178;
+      color: var(--muted-2);
       line-height: 1.6;
     }
 
     .sources {
       margin-top: 24px;
       padding-top: 18px;
-      border-top: 1px solid #e4d8ca;
+      border-top: 1px solid var(--border);
     }
 
     .sources-title {
-      font-size: 14px;
-      font-weight: 700;
       margin-bottom: 10px;
-      color: #3a2418;
+      color: #091525;
+      font-size: 14px;
+      font-weight: 800;
     }
 
     .source-list {
@@ -287,252 +396,16 @@
     }
 
     .source-item {
-      word-break: break-word;
-      background: #f5eee6;
-      padding: 9px 11px;
-      border-radius: 10px;
-      color: #5c5148;
-    }
-
-    .error {
-      color: #9e2f2f;
-      background: #fff0f0;
-      border: 1px solid #f1c4c4;
-      padding: 12px;
-      border-radius: 12px;
-      white-space: pre-wrap;
-    }
-
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      h1 {
-        font-size: 30px;
-      }
-    }
-
-      :root {
-        --bg: #050b14;
-        --bg-soft: #081323;
-        --card: #0b1626;
-        --card-soft: #101f34;
-        --border: #22324a;
-        --border-soft: #31445f;
-
-        --text: #f6efe3;
-        --muted: #c6b8a3;
-        --muted-2: #8f9aad;
-
-        --accent: #d6aa55;
-        --accent-light: #f0cf7a;
-        --accent-dark: #9b7434;
-        --accent-soft: rgba(214, 170, 85, 0.16);
-
-        --bronze: #b9824a;
-        --bronze-light: #d7a86a;
-        --bronze-dark: #74441f;
-        --bronze-shadow: rgba(185, 130, 74, 0.28);
-
-        --danger: #ffb4a8;
-        --danger-bg: #331b1b;
-        --danger-border: #743333;
-      }
-
-    body {
-      background:
-        radial-gradient(circle at 18% 8%, rgba(214, 170, 85, 0.10), transparent 28%),
-        radial-gradient(circle at 82% 12%, rgba(15, 23, 42, 0.10), transparent 30%),
-        radial-gradient(circle at 50% 100%, rgba(226, 232, 240, 0.70), transparent 42%),
-        linear-gradient(180deg, #fbfaf7 0%, #f3f0ea 52%, #ebe7df 100%);
-      color: #091525;
-    }
-    .page {
-      max-width: 1180px;
-    }
-
-    .eyebrow {
-      color: #9b7434;
-    }
-    
-    h1 {
-      color: #091525;
-      letter-spacing: -0.03em;
-    }
-
-    .subtitle {
-      color: #4e5a6b;
-    }
-
-    .card {
-      background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.82),
-        rgba(255, 255, 255, 0.60)
-      );
-      border: 1px solid rgba(9, 21, 37, 0.10);
-      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-      backdrop-filter: blur(18px);
-    }
-
-        .layout > .card:first-child {
-      position: sticky;
-      top: 24px;
-    }
-
-    @media (max-width: 900px) {
-      .layout > .card:first-child {
-        position: static;
-      }
-    }
-
-    label {
-        color: #091525;
-    }
-
-    textarea {
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(9, 21, 37, 0.10);
-      color: #091525;
-    }
-
-    textarea::placeholder {
-      color: #7b8696;
-    }
-
-    textarea:focus {
-      border-color: rgba(155, 116, 52, 0.26);
-      box-shadow: 0 0 0 3px rgba(214, 170, 85, 0.10);
-    }
-
-    .preset-button {
-      background: rgba(255, 255, 255, 0.72);
-      border: 1px solid rgba(9, 21, 37, 0.10);
-      color: #4e5a6b;
-      box-shadow: none;
-    }
-
-    .preset-button:hover {
-      background: rgba(255, 255, 255, 0.92);
-      border-color: rgba(155, 116, 52, 0.20);
-      color: #091525;
-      box-shadow: none;
-    }
-
-    .preset-button.active {
-      background: rgba(248, 244, 238, 0.96);
-      border-color: rgba(155, 116, 52, 0.24);
-      color: #091525;
-      box-shadow: none;
-    }
-
-
-    .ask-button {
-      width: 100%;
-      min-height: 48px;
-      border: 1px solid rgba(155, 116, 52, 0.34);
-      border-radius: 14px;
-      padding: 13px 20px;
-      background: #10233d;
-      color: #f5efe6;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      cursor: pointer;
-      transition: 0.16s ease;
-      text-shadow: none;
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
-    }
-
-    .ask-button:hover {
-      border-color: rgba(155, 116, 52, 0.46);
-      background: #132945;
-      transform: translateY(-1px);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-    }
-
-    .ask-button:active {
-      transform: translateY(0);
-
-      box-shadow:
-        inset 0 1px 3px rgba(0, 0, 0, 0.28),
-        0 8px 22px rgba(0, 0, 0, 0.24);
-    }
-
-    .ask-button:disabled {
-      background: linear-gradient(180deg, #26354a, #1a2638);
-      color: #7f8a9a;
-      border-color: rgba(255, 255, 255, 0.08);
-      box-shadow: none;
-      text-shadow: none;
-      transform: none;
-      cursor: not-allowed;
-    }
-
-    .hint {
-      color: var(--muted-2);
-    }
-
-    .answer-title {
-      color: #091525;
-    }
-
-    .mode {
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(9, 21, 37, 0.06);
-      color: #091525;
-      border: 1px solid rgba(9, 21, 37, 0.14);
-      font-weight: 750;
-      letter-spacing: -0.01em;
-      white-space: nowrap;
-    }
-
-    .answer {
-      color: #2f3a49;
-    }
-
-    .answer h2 {
-      color: #091525;
-      border-bottom-color: rgba(9, 21, 37, 0.10);
-    }
-
-    .answer p,
-    .answer li {
-      color: #425061;
-    }
-
-    .answer strong {
-      color: #091525;
-    }
-
-    .placeholder {
-      color: var(--muted-2);
-    }
-
-    .sources {
-      border-top-color: var(--border);
-    }
-
-    .sources-title {
-      color: #091525;
-      font-weight: 800;
-    }
-
-    .source-item {
       display: block;
-      word-break: break-word;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent),
         var(--card-soft);
-      padding: 12px 13px;
-      border-radius: 12px;
       color: var(--muted);
-      border: 1px solid var(--border);
       text-decoration: none;
+      word-break: break-word;
       transition: 0.15s ease;
     }
 
@@ -556,9 +429,12 @@
     }
 
     .error {
-      color: var(--danger);
+      padding: 12px;
+      border: 1px solid var(--danger-border);
+      border-radius: 12px;
       background: var(--danger-bg);
-      border-color: var(--danger-border);
+      color: var(--danger);
+      white-space: pre-wrap;
     }
 
     .intro-overlay {
@@ -603,15 +479,14 @@
     }
 
     .intro-content h2 {
-      margin: 0 auto;
       max-width: 1050px;
-      color: #091525;;
+      margin: 0 auto;
+      color: #091525;
       font-size: clamp(64px, 11vw, 168px);
+      font-weight: 850;
       line-height: 0.88;
       letter-spacing: -0.085em;
-      font-weight: 850;
       text-wrap: balance;
-      text-shadow: none;
     }
 
     .intro-content p {
@@ -650,8 +525,11 @@
       padding: 12px 14px;
       border: 1px solid rgba(9, 21, 37, 0.10);
       border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.78),
+        rgba(255, 255, 255, 0.52)
+      );
       backdrop-filter: blur(22px);
       box-shadow:
         0 18px 60px rgba(15, 23, 42, 0.10),
@@ -671,8 +549,8 @@
       display: grid;
       place-items: center;
       flex: 0 0 auto;
-      border-radius: 12px;
       overflow: hidden;
+      border-radius: 12px;
       background: #0f1f33;
       box-shadow: 0 10px 30px rgba(214, 170, 85, 0.45);
     }
@@ -680,10 +558,10 @@
     .product-logo img {
       width: 100%;
       height: 100%;
+      display: block;
       object-fit: cover;
       object-position: center;
       transform: scale(1.90);
-      display: block;
     }
 
     .product-name {
@@ -701,40 +579,30 @@
       line-height: 1.1;
     }
 
-    .product-nav {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      color: #5b6472;
-      font-size: 12px;
-      font-weight: 650;
-    }
-
-    .product-nav span {
-      padding: 7px 10px;
-      border: 1px solid rgba(9, 21, 37, 0.10);
-      border-radius: 999px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
-      color: #4e5a6b;
-      white-space: nowrap;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.75),
-        0 8px 22px rgba(15, 23, 42, 0.06);
-    }
-
     .product-signature {
-      color: #4e5a6b;
-      font-size: 12px;
-      font-weight: 650;
-      letter-spacing: -0.01em;
       padding: 8px 12px;
       border: 1px solid rgba(9, 21, 37, 0.10);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.62);
+      color: #4e5a6b;
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
       white-space: nowrap;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .layout > .card:first-child {
+        position: static;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
     }
 
     @media (max-width: 700px) {
@@ -745,8 +613,8 @@
         margin-top: -10px;
       }
 
-      .product-nav {
-        justify-content: normal;
+      .workspace-row {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -762,35 +630,72 @@
       </p>
     </div>
   </div>
+
   <main class="page">
-        <nav class="product-bar">
+    <nav class="product-bar">
       <div class="product-brand">
         <div class="product-logo">
           <img src="/static/assets/uni-assist-avatar.png" alt="Uni-Assist owl logo" />
-        </div>        <div>
+        </div>
+        <div>
           <div class="product-name">Uni-Assist</div>
           <div class="product-caption">Applicant decision brief</div>
         </div>
       </div>
 
-    <div class="product-signature">
-      Built by Eldar Kyzbikenov · © 2026 · Prototype
-    </div>
+      <div class="product-signature">
+        Built by Eldar Kyzbikenov · © 2026 · Prototype
+      </div>
     </nav>
+
     <section class="header">
       <div class="eyebrow">Uni Assistant Prototype</div>
       <h1>University admission guidance from official sources</h1>
       <p class="subtitle">
-        Paste official university pages, ask a question, and get a structured answer with facts,
-        missing information, next steps, and sources.
+        Create a programme workspace, add official university pages once, and ask questions from the accumulated evidence.
       </p>
     </section>
 
     <section class="layout">
       <div class="card">
+        <div class="workspace-panel">
+          <div class="workspace-title">Programme workspace</div>
+
+          <div class="workspace-row">
+            <select id="programmeSelect" aria-label="Saved programme">
+              <option value="">No saved programmes yet</option>
+            </select>
+            <button id="openProgrammeButton" type="button" class="secondary-button">
+              Open
+            </button>
+          </div>
+
+          <div class="workspace-row">
+            <input
+              id="programmeTitle"
+              type="text"
+              value="Computer Science · RWTH Aachen"
+              placeholder="Programme title"
+            />
+            <button id="createProgrammeButton" type="button" class="secondary-button">
+              Create
+            </button>
+          </div>
+
+          <div id="workspaceStatus" class="workspace-status">
+            Create or select a programme to begin.
+          </div>
+        </div>
+
         <div class="field">
           <label for="urls">Official source URLs</label>
-          <textarea id="urls" spellcheck="false">https://www.rwth-aachen.de/go/id/blcf?lidx=1#aaaaaaaaaaablcg https://www.rwth-aachen.de/go/id/eft/lidx/1 https://www.fb3.rwth-aachen.de/cms/bauingenieurwesen/studium/beratung/praktikumsamt/~imeq/das-vorpraktikum-auf-einen-blick/?lidx=1  https://www.rwth-aachen.de/cms/root/studium/Im-Studium/~egv/Semestertermine/lidx/1/</textarea>
+          <textarea id="urls" spellcheck="false">https://www.rwth-aachen.de/go/id/blcf?lidx=1#aaaaaaaaaaablcg https://www.rwth-aachen.de/go/id/eft/lidx/1 https://www.fb3.rwth-aachen.de/cms/bauingenieurwesen/studium/beratung/praktikumsamt/~imeq/das-vorpraktikum-auf-einen-blick/?lidx=1 https://www.rwth-aachen.de/cms/root/studium/Im-Studium/~egv/Semestertermine/lidx/1/</textarea>
+        </div>
+
+        <div class="source-actions">
+          <button id="addSourcesButton" type="button" class="secondary-button" disabled>
+            Add official sources
+          </button>
         </div>
 
         <div class="field">
@@ -799,31 +704,31 @@
         </div>
 
         <div class="presets">
-            <button type="button" class="preset-button" data-question="What should an applicant know about this programme? Summarize programme facts, admission requirements, deadlines, required documents, language requirements, missing information, and next steps.">
-                Programme overview
-            </button>
+          <button type="button" class="preset-button" data-question="What should an applicant know about this programme? Summarize programme facts, admission requirements, deadlines, required documents, language requirements, missing information, and next steps.">
+            Programme overview
+          </button>
 
-            <button type="button" class="preset-button" data-question="What admission requirements are clearly stated for this programme?">
-                Admission requirements
-            </button>
+          <button type="button" class="preset-button" data-question="What admission requirements are clearly stated for this programme?">
+            Admission requirements
+          </button>
 
-            <button type="button" class="preset-button" data-question="What deadlines or application periods are stated for this programme?">
-                Deadlines
-            </button>
+          <button type="button" class="preset-button" data-question="What deadlines or application periods are stated for this programme?">
+            Deadlines
+          </button>
 
-            <button type="button" class="preset-button" data-question="What documents, forms, certificates, or proofs are mentioned for applying?">
-                Documents
-            </button>
+          <button type="button" class="preset-button" data-question="What documents, forms, certificates, or proofs are mentioned for applying?">
+            Documents
+          </button>
 
-            <button type="button" class="preset-button" data-question="What should I prepare before applying to this programme?">
-                Preparation plan
-            </button>
+          <button type="button" class="preset-button" data-question="What should I prepare before applying to this programme?">
+            Preparation plan
+          </button>
         </div>
 
-        <button id="askButton" class="ask-button">Ask Uni Assistant</button>
+        <button id="askButton" class="ask-button" disabled>Ask Uni-Assist</button>
 
         <p class="hint">
-          This demo calls <strong>/api/v2/analyse</strong> and builds the result from grounded university evidence.
+          Sources are added to the selected programme once. Questions then read the saved evidence without scraping the university pages again.
         </p>
       </div>
 
@@ -834,11 +739,11 @@
         </div>
 
         <div id="answer" class="answer placeholder">
-          The answer will appear here after you submit a question.
+          Create or open a programme workspace. Its accumulated state will appear here.
         </div>
 
         <div id="sources" class="sources" style="display: none;">
-          <div class="sources-title">Official sources used</div>
+          <div id="sourcesTitle" class="sources-title">Official sources</div>
           <div id="sourceList" class="source-list"></div>
         </div>
       </div>
@@ -846,22 +751,37 @@
   </main>
 
   <script>
+    const STORAGE_KEY = "uni-assist-active-programme-id";
+
+    const programmeSelect = document.getElementById("programmeSelect");
+    const programmeTitleInput = document.getElementById("programmeTitle");
+    const createProgrammeButton = document.getElementById("createProgrammeButton");
+    const openProgrammeButton = document.getElementById("openProgrammeButton");
+    const workspaceStatus = document.getElementById("workspaceStatus");
+
     const urlsInput = document.getElementById("urls");
+    const addSourcesButton = document.getElementById("addSourcesButton");
+
     const questionInput = document.getElementById("question");
     const askButton = document.getElementById("askButton");
+    const presetButtons = document.querySelectorAll(".preset-button");
+
     const answerBlock = document.getElementById("answer");
     const modeBlock = document.getElementById("mode");
     const sourcesBlock = document.getElementById("sources");
+    const sourcesTitle = document.getElementById("sourcesTitle");
     const sourceList = document.getElementById("sourceList");
-    const presetButtons = document.querySelectorAll(".preset-button");
+
+    let activeProgrammeId = null;
+    let currentWorkspace = null;
 
     presetButtons.forEach(button => {
-    button.addEventListener("click", () => {
+      button.addEventListener("click", () => {
         questionInput.value = button.dataset.question;
 
         presetButtons.forEach(item => item.classList.remove("active"));
         button.classList.add("active");
-    });
+      });
     });
 
     function getUrls() {
@@ -869,6 +789,459 @@
         .split(/\s+/)
         .map(url => url.trim())
         .filter(Boolean);
+    }
+
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const detail = data && data.detail
+          ? data.detail
+          : `Request failed with status ${response.status}`;
+
+        throw new Error(detail);
+      }
+
+      return data;
+    }
+
+    function setActiveProgramme(programmeId) {
+      activeProgrammeId = programmeId || null;
+
+      if (activeProgrammeId) {
+        localStorage.setItem(STORAGE_KEY, activeProgrammeId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      addSourcesButton.disabled = !activeProgrammeId;
+      askButton.disabled = !activeProgrammeId;
+      openProgrammeButton.disabled = !activeProgrammeId;
+    }
+
+    function buildProgrammeOptionLabel(programme) {
+      return `${programme.title} · ${programme.source_count} sources · ${programme.evidence_count} facts`;
+    }
+
+    async function loadProgrammes(preferredProgrammeId = null) {
+      const programmes = await requestJson("/api/v2/programmes");
+
+      programmeSelect.innerHTML = "";
+
+      if (!programmes || programmes.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No saved programmes yet";
+        programmeSelect.appendChild(option);
+
+        setActiveProgramme(null);
+        currentWorkspace = null;
+        workspaceStatus.textContent = "Create a programme to begin.";
+        renderSources([]);
+        return;
+      }
+
+      programmes.forEach(programme => {
+        const option = document.createElement("option");
+        option.value = programme.id;
+        option.textContent = buildProgrammeOptionLabel(programme);
+        programmeSelect.appendChild(option);
+      });
+
+      const storedProgrammeId = localStorage.getItem(STORAGE_KEY);
+      const candidateId = preferredProgrammeId || storedProgrammeId;
+
+      const selectedProgramme = programmes.find(
+        programme => programme.id === candidateId
+      ) || programmes[0];
+
+      programmeSelect.value = selectedProgramme.id;
+      setActiveProgramme(selectedProgramme.id);
+
+      await openProgramme(selectedProgramme.id);
+    }
+
+    async function createProgramme() {
+      const title = programmeTitleInput.value.trim();
+
+      if (!title) {
+        showError("Please enter a programme title.");
+        return;
+      }
+
+      createProgrammeButton.disabled = true;
+      modeBlock.textContent = "creating";
+
+      try {
+        const workspace = await requestJson("/api/v2/programmes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title
+          })
+        });
+
+        setActiveProgramme(workspace.programme.id);
+        currentWorkspace = workspace;
+        renderWorkspace(workspace, "Programme workspace created.");
+
+        await loadProgrammes(workspace.programme.id);
+      } catch (error) {
+        showError(error.message || "Could not create programme.");
+      } finally {
+        createProgrammeButton.disabled = false;
+      }
+    }
+
+    async function openProgramme(programmeId = programmeSelect.value) {
+      if (!programmeId) {
+        showError("Please select a programme first.");
+        return;
+      }
+
+      modeBlock.textContent = "loading";
+      answerBlock.className = "answer placeholder";
+      answerBlock.textContent = "Loading saved programme state...";
+
+      try {
+        const workspace = await requestJson(
+          `/api/v2/programmes/${encodeURIComponent(programmeId)}`
+        );
+
+        setActiveProgramme(programmeId);
+        programmeSelect.value = programmeId;
+        currentWorkspace = workspace;
+
+        renderWorkspace(workspace);
+      } catch (error) {
+        setActiveProgramme(null);
+        currentWorkspace = null;
+        showError(error.message || "Could not open programme.");
+      }
+    }
+
+    async function addSources() {
+      if (!activeProgrammeId) {
+        showError("Create or select a programme before adding sources.");
+        return;
+      }
+
+      const urls = getUrls();
+
+      if (urls.length === 0) {
+        showError("Please provide at least one official source URL.");
+        return;
+      }
+
+      addSourcesButton.disabled = true;
+      askButton.disabled = true;
+      modeBlock.textContent = "analysing";
+      answerBlock.className = "answer placeholder";
+      answerBlock.textContent = "Reading new official sources and updating the saved programme state...";
+
+      try {
+        const result = await requestJson(
+          `/api/v2/programmes/${encodeURIComponent(activeProgrammeId)}/sources`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              urls
+            })
+          }
+        );
+
+        currentWorkspace = result.workspace;
+
+        const addedCount = (result.added_sources || []).length;
+        const skippedCount = (result.skipped_urls || []).length;
+
+        const messageParts = [];
+
+        if (addedCount > 0) {
+          messageParts.push(`${addedCount} new source${addedCount === 1 ? "" : "s"} added`);
+        }
+
+        if (skippedCount > 0) {
+          messageParts.push(`${skippedCount} already-known source${skippedCount === 1 ? "" : "s"} skipped`);
+        }
+
+        const message = messageParts.length > 0
+          ? `${messageParts.join("; ")}.`
+          : "Programme state checked.";
+
+        renderWorkspace(result.workspace, message);
+        updateSelectedProgrammeLabel();
+      } catch (error) {
+        showError(error.message || "Could not add sources.");
+      } finally {
+        addSourcesButton.disabled = !activeProgrammeId;
+        askButton.disabled = !activeProgrammeId;
+      }
+    }
+
+    async function askProgramme() {
+      if (!activeProgrammeId) {
+        showError("Create or select a programme before asking a question.");
+        return;
+      }
+
+      const question = questionInput.value.trim();
+
+      if (!question) {
+        showError("Please enter a question.");
+        return;
+      }
+
+      askButton.disabled = true;
+      addSourcesButton.disabled = true;
+      modeBlock.textContent = "thinking";
+      answerBlock.className = "answer placeholder";
+      answerBlock.textContent = "Reading the saved programme evidence...";
+
+      try {
+        const data = await requestJson(
+          `/api/v2/programmes/${encodeURIComponent(activeProgrammeId)}/questions`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              question
+            })
+          }
+        );
+
+        modeBlock.textContent = data.intent || "evidence";
+        answerBlock.className = "answer";
+        answerBlock.innerHTML = renderMarkdownLike(
+          buildQuestionAnswer(data)
+        );
+
+        const supportingSources = [
+          ...new Set(
+            (data.evidence || [])
+              .map(item => item.source_url)
+              .filter(Boolean)
+          )
+        ];
+
+        if (supportingSources.length > 0) {
+          renderSources(
+            supportingSources,
+            "Official sources supporting this answer"
+          );
+        } else {
+          renderSources(
+            getWorkspaceSourceUrls(),
+            "Official sources in this workspace"
+          );
+        }
+      } catch (error) {
+        showError(error.message || "Could not answer question.");
+      } finally {
+        askButton.disabled = !activeProgrammeId;
+        addSourcesButton.disabled = !activeProgrammeId;
+      }
+    }
+
+    function updateSelectedProgrammeLabel() {
+      if (!currentWorkspace || !activeProgrammeId) {
+        return;
+      }
+
+      const option = [...programmeSelect.options].find(
+        item => item.value === activeProgrammeId
+      );
+
+      if (!option) {
+        return;
+      }
+
+      const programme = currentWorkspace.programme;
+      option.textContent = `${programme.title} · ${currentWorkspace.sources.length} sources · ${currentWorkspace.evidence.length} facts`;
+    }
+
+    function renderWorkspace(workspace, message = "") {
+      const programme = workspace.programme || {};
+      const sourceCount = (workspace.sources || []).length;
+      const evidenceCount = (workspace.evidence || []).length;
+
+      modeBlock.textContent = "workspace";
+      workspaceStatus.textContent = `${programme.title} · ${sourceCount} official source${sourceCount === 1 ? "" : "s"} · ${evidenceCount} grounded fact${evidenceCount === 1 ? "" : "s"}`;
+
+      answerBlock.className = "answer";
+      answerBlock.innerHTML = renderMarkdownLike(
+        buildWorkspaceAnswer(workspace, message)
+      );
+
+      renderSources(
+        getWorkspaceSourceUrls(),
+        "Official sources in this workspace"
+      );
+    }
+
+    function buildWorkspaceAnswer(workspace, message = "") {
+      const programme = workspace.programme || {};
+      const evidence = workspace.evidence || [];
+      const missing = workspace.missing_information || [];
+
+      let text = "";
+
+      if (message) {
+        text += `${message}\n\n`;
+      }
+
+      text += "## Programme profile\n";
+      text += `- **Workspace:** ${programme.title || "Untitled programme"}\n`;
+
+      const profileFields = [
+        ["Programme", programme.programme_name],
+        ["Institution", programme.institution_name],
+        ["Degree", programme.degree],
+        ["Duration", programme.duration],
+        ["ECTS credits", programme.credits],
+        ["Language of instruction", programme.language]
+      ];
+
+      let profileFacts = 0;
+
+      profileFields.forEach(([label, value]) => {
+        if (value) {
+          text += `- **${label}:** ${value}\n`;
+          profileFacts += 1;
+        }
+      });
+
+      if (profileFacts === 0) {
+        text += "- No programme-level facts have been projected yet.\n";
+      }
+
+      text += "\n## Grounded facts\n";
+
+      if (evidence.length === 0) {
+        text += "- No resolved evidence has been collected yet.\n";
+      } else {
+        evidence.forEach(item => {
+          text += `- **${item.label}:** ${item.value}\n`;
+        });
+      }
+
+
+      if (missing.length > 0) {
+        text += "\n## Missing or conflicting information\n";
+        missing.forEach(item => {
+          text += `- **${humanize(item.field)} (${humanize(item.status)}):** ${item.reason}\n`;
+        });
+      }
+
+      return text;
+    }
+
+    function buildQuestionAnswer(data) {
+      const programme = data.programme || {};
+      const evidence = data.evidence || [];
+      const missing = data.missing_information || [];
+      const intent = data.intent || "direct_question";
+
+      let text = "";
+
+      if (intent === "overview") {
+        text += "## Programme profile\n";
+
+        const fields = [
+          ["Degree", programme.degree],
+          ["Duration", programme.duration],
+          ["ECTS credits", programme.credits],
+          ["Language of instruction", programme.language]
+        ];
+
+        let count = 0;
+
+        fields.forEach(([label, value]) => {
+          if (value) {
+            text += `- **${label}:** ${value}\n`;
+            count += 1;
+          }
+        });
+
+        if (count === 0) {
+          text += "- No programme-level facts are currently resolved.\n";
+        }
+
+        text += "\n";
+      }
+
+      const sectionTitles = {
+        overview: "Relevant evidence",
+        admission_requirements: "Admission requirements",
+        deadlines: "Deadlines",
+        documents: "Required documents",
+        preparation: "Preparation",
+        direct_question: "Relevant evidence"
+      };
+
+      text += `## ${sectionTitles[intent] || "Relevant evidence"}\n`;
+
+      if (evidence.length === 0) {
+        text += "- No relevant resolved evidence was found in the saved programme state.\n";
+      } else {
+        evidence.forEach(item => {
+          text += `- **${item.label}:** ${item.value}\n`;
+        });
+      }
+
+      if (missing.length > 0) {
+        text += "\n## Known uncertainties\n";
+
+        missing.forEach(item => {
+          text += `- **${humanize(item.field)} (${humanize(item.status)}):** ${item.reason}\n`;
+        });
+      }
+
+      return text;
+    }
+
+    function appendMissingInformation() {
+      // Kept as a named boundary for later answer-composition work.
+      // Rendering remains in buildWorkspaceAnswer for now.
+    }
+
+    function getWorkspaceSourceUrls() {
+      if (!currentWorkspace) {
+        return [];
+      }
+
+      return [
+        ...new Set(
+          (currentWorkspace.sources || [])
+            .map(source => source.url || source.normalized_url)
+            .filter(Boolean)
+        )
+      ];
+    }
+
+    function humanize(value) {
+      if (!value) {
+        return "unknown";
+      }
+
+      return String(value)
+        .replaceAll("_", " ")
+        .toLowerCase();
     }
 
     function getSourceLabel(source) {
@@ -916,15 +1289,19 @@
     function getShortSource(source) {
       try {
         const url = new URL(source);
-        const path = url.pathname.replaceAll("/", " / ").replace(/^ \/ /, "");
+        const path = url.pathname
+          .replaceAll("/", " / ")
+          .replace(/^ \/ /, "");
+
         return `${url.hostname}${path ? " / " + path : ""}`;
       } catch {
         return source;
       }
     }
 
-    function renderSources(sources) {
+    function renderSources(sources, title = "Official sources") {
       sourceList.innerHTML = "";
+      sourcesTitle.textContent = title;
 
       if (!sources || sources.length === 0) {
         sourcesBlock.style.display = "none";
@@ -954,8 +1331,14 @@
       sourcesBlock.style.display = "block";
     }
 
-        function escapeHtml(text) {
-      return text
+    function showError(message) {
+      modeBlock.textContent = "error";
+      answerBlock.className = "error";
+      answerBlock.textContent = message;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -1022,161 +1405,20 @@
       return html;
     }
 
+    programmeSelect.addEventListener("change", () => {
+      const programmeId = programmeSelect.value;
 
-    function buildV2Answer(data) {
-      const programme = data.programme || {};
-      const evidence = data.evidence || [];
-      const conflicts = data.conflicts || {};
-      const intent = data.intent || "direct_question";
-
-      let text = "";
-
-      if (intent === "overview") {
-        text += "## Programme profile\n";
-
-        const profileFields = [
-          ["Degree", programme.degree],
-          ["Duration", programme.duration],
-          ["ECTS credits", programme.credits],
-          ["Language of instruction", programme.language]
-        ];
-
-        let profileFacts = 0;
-
-        profileFields.forEach(([label, value]) => {
-          if (value) {
-            text += `- **${label}:** ${value}\n`;
-            profileFacts += 1;
-          }
-        });
-
-        if (profileFacts === 0) {
-          text += "- No programme-level facts were resolved from these sources.\n";
-        }
-
-        text += "\n";
+      if (programmeId) {
+        openProgramme(programmeId);
       }
+    });
 
-      const sectionTitles = {
-        overview: "Evidence",
-        admission_requirements: "Admission requirements",
-        deadlines: "Deadlines",
-        documents: "Required documents",
-        preparation: "Preparation",
-        direct_question: "Relevant evidence"
-      };
-
-      text += `## ${sectionTitles[intent] || "Relevant evidence"}\n`;
-
-      if (evidence.length === 0) {
-        text += "- No relevant resolved evidence was found in the provided sources.\n";
-      } else {
-        evidence.forEach(item => {
-          text += `- **${item.label}:** ${item.value}\n`;
-        });
-      }
-
-      const conflictEntries = Object.entries(conflicts);
-
-      if (conflictEntries.length > 0) {
-        text += "\n## Conflicts\n";
-
-        conflictEntries.forEach(([field, values]) => {
-          text += `- **${field}:** ${values.join(" | ")}\n`;
-        });
-      }
-
-      if (data.unresolved_count > 0) {
-        text += "\n## Unresolved\n";
-        text += `- ${data.unresolved_count} evidence candidate(s) could not be classified confidently.\n`;
-      }
-
-      return text;
-    }
-
-    async function askAssistant() {
-      const urls = getUrls();
-      const question = questionInput.value.trim();
-
-      if (urls.length === 0 || !question) {
-        answerBlock.className = "error";
-        answerBlock.textContent =
-          "Please provide at least one URL and a question.";
-        modeBlock.textContent = "error";
-        renderSources([]);
-        return;
-      }
-
-      askButton.disabled = true;
-      askButton.textContent = "Thinking...";
-      modeBlock.textContent = "loading";
-
-      answerBlock.className = "answer placeholder";
-      answerBlock.textContent =
-        "Reading official sources and building programme evidence...";
-
-      renderSources([]);
-
-      try {
-        const response = await fetch("/api/v2/analyse", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            urls,
-            question
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Request failed with status ${response.status}`
-          );
-        }
-
-        const data = await response.json();
-
-        modeBlock.textContent = data.intent || "v2 evidence";
-        answerBlock.className = "answer";
-        answerBlock.innerHTML = renderMarkdownLike(
-          buildV2Answer(data)
-        );
-
-        const sources = [
-          ...new Set(
-            (data.evidence || [])
-              .map(item => item.source_url)
-              .filter(Boolean)
-          )
-        ];
-
-        if (
-          sources.length === 0 &&
-          data.source_url
-        ) {
-          sources.push(data.source_url);
-        }
-
-        renderSources(sources);
-      } catch (error) {
-        modeBlock.textContent = "error";
-        answerBlock.className = "error";
-        answerBlock.textContent =
-          error.message || "Something went wrong.";
-
-        renderSources([]);
-      } finally {
-        askButton.disabled = false;
-        askButton.textContent = "Ask Uni-Assist";
-      }
-    }
-
- 
-
+    createProgrammeButton.addEventListener("click", createProgramme);
+    openProgrammeButton.addEventListener("click", () => openProgramme());
+    addSourcesButton.addEventListener("click", addSources);
+    askButton.addEventListener("click", askProgramme);
 
     const introOverlay = document.getElementById("introOverlay");
-
     let introClosed = false;
 
     function closeIntro() {
@@ -1188,17 +1430,24 @@
       introOverlay.classList.add("hidden");
     }
 
-    window.addEventListener("load", () => {
+    window.addEventListener("load", async () => {
       setTimeout(closeIntro, 2100);
-    });
 
-    document.addEventListener("keydown", event => {
-      if (event.key === "Escape" && !introOverlay.classList.contains("hidden")) {
-        closeIntro();
+      try {
+        await loadProgrammes();
+      } catch (error) {
+        showError(error.message || "Could not load saved programmes.");
       }
     });
 
-    askButton.addEventListener("click", askAssistant);
+    document.addEventListener("keydown", event => {
+      if (
+        event.key === "Escape" &&
+        !introOverlay.classList.contains("hidden")
+      ) {
+        closeIntro();
+      }
+    });
   </script>
 </body>
 </html>
